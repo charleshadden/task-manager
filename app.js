@@ -1124,61 +1124,74 @@ window.addEventListener('online', () => {
 });
 
 async function initializeApp() {
-  const syncAdapter = getSyncAdapter();
+  try {
+    const syncAdapter = getSyncAdapter();
 
-  if (!syncAdapter?.enabled) {
-    setBootStatus('Supabase auth is not configured.');
-    setSyncStatus('Supabase auth is not configured.');
-    showAppShell();
-    render();
-    return;
-  }
+    if (!syncAdapter?.enabled) {
+      setBootStatus('Supabase auth is not configured.');
+      setSyncStatus('Supabase auth is not configured.');
+      showAppShell();
+      render();
+      return;
+    }
 
-  setBootStatus('Checking your account...');
-  const authRedirectResult = await syncAdapter.consumeAuthRedirect();
+    if (typeof syncAdapter.getSession !== 'function') {
+      setBootStatus('Auth module is outdated. Hard refresh this page and redeploy if needed.');
+      return;
+    }
 
-  if (!authRedirectResult.ok) {
-    setBootStatus(authRedirectResult.message);
-    setSyncStatus(authRedirectResult.message);
-    return;
-  }
+    setBootStatus('Checking your account...');
 
-  if (authRedirectResult.session?.user) {
-    syncAdapter.clearAuthParamsFromUrl();
-  }
+    if (typeof syncAdapter.consumeAuthRedirect === 'function') {
+      const authRedirectResult = await syncAdapter.consumeAuthRedirect();
+      if (!authRedirectResult.ok) {
+        setBootStatus(authRedirectResult.message);
+        setSyncStatus(authRedirectResult.message);
+        return;
+      }
 
-  const sessionResult = await syncAdapter.getSession();
+      if (authRedirectResult.session?.user && typeof syncAdapter.clearAuthParamsFromUrl === 'function') {
+        syncAdapter.clearAuthParamsFromUrl();
+      }
+    }
 
-  if (!sessionResult.ok) {
-    setBootStatus(sessionResult.message);
-    return;
-  }
+    const sessionResult = await syncAdapter.getSession();
 
-  if (!sessionResult.session?.user) {
-    redirectToLogin();
-    return;
-  }
+    if (!sessionResult.ok) {
+      setBootStatus(sessionResult.message);
+      return;
+    }
 
-  currentUser = sessionResult.session.user;
-  state = loadLocalState(currentUser);
-  ensureStateShape();
-  updateAccountUi();
-  showAppShell();
-  scheduleReminders();
-  render();
-  await hydrateStateFromSupabase();
-  await syncAdapter.logReadWriteTest();
-
-  syncAdapter.onAuthStateChange((session) => {
-    if (!session?.user) {
+    if (!sessionResult.session?.user) {
       redirectToLogin();
       return;
     }
 
-    if (session.user.id !== currentUser?.id) {
-      window.location.reload();
-    }
-  });
+    currentUser = sessionResult.session.user;
+    state = loadLocalState(currentUser);
+    ensureStateShape();
+    updateAccountUi();
+    showAppShell();
+    scheduleReminders();
+    render();
+    await hydrateStateFromSupabase();
+    await syncAdapter.logReadWriteTest();
+
+    syncAdapter.onAuthStateChange((session) => {
+      if (!session?.user) {
+        redirectToLogin();
+        return;
+      }
+
+      if (session.user.id !== currentUser?.id) {
+        window.location.reload();
+      }
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unexpected auth initialization error.';
+    setBootStatus(`Could not initialize account session. ${message}`);
+    setSyncStatus(`Could not initialize account session. ${message}`);
+  }
 }
 
 initializeApp();
