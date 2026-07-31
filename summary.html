@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#4f46e5" />
+    <link rel="stylesheet" href="/styles.css?v=9" />
+    <title>Summary | Habit Check</title>
+  </head>
+  <body>
+    <div id="summaryBootStatus" class="auth-gate">Checking your account...</div>
+    <main class="app-shell" id="summaryShell" hidden>
+      <div class="account-bar">
+        <p id="summaryAccountEmail" class="status-text">Checking account...</p>
+        <div class="account-actions">
+          <a href="/index.html" class="secondary-button link-button">Back to Quests</a>
+          <button id="summaryLogoutButton" type="button" class="secondary-button">Log out</button>
+        </div>
+      </div>
+
+      <header class="hero character-hero">
+        <div class="hero-intro">
+          <p class="eyebrow">Campaign Ledger</p>
+          <h1>Adventure Summary</h1>
+          <p class="subtitle">Lifetime totals across daily quests, adventure goals, and character stats.</p>
+        </div>
+        <div class="hero-stats">
+          <div class="hero-stat">
+            <span class="hero-stat-label">Class</span>
+            <span class="hero-stat-value" id="summaryClassName">Fighter</span>
+          </div>
+          <div class="hero-stat">
+            <span class="hero-stat-label">Archetype</span>
+            <span class="hero-stat-value" id="summaryArchetype">Champion</span>
+          </div>
+          <div class="hero-stat">
+            <span class="hero-stat-label">Level</span>
+            <span class="hero-stat-value" id="summaryLevel">0</span>
+          </div>
+        </div>
+      </header>
+
+      <section class="summary-card character-stats">
+        <div class="metric">
+          <span class="value" id="summaryXp">0</span>
+          <span class="label">total xp</span>
+        </div>
+        <div class="metric">
+          <span class="value" id="summaryCurrentStreak">0</span>
+          <span class="label">current streak</span>
+        </div>
+        <div class="metric">
+          <span class="value" id="summaryBestStreak">0</span>
+          <span class="label">best streak</span>
+        </div>
+        <div class="metric">
+          <span class="value" id="summaryDailyCompletions">0</span>
+          <span class="label">daily completions</span>
+        </div>
+        <div class="metric">
+          <span class="value" id="summaryAdventureCompletions">0</span>
+          <span class="label">adventure completions</span>
+        </div>
+      </section>
+      <p id="summaryProgressText" class="status-text">0 / 10,000 to next level</p>
+
+      <section class="card summary-section">
+        <div class="card-header"><h2>Attribute Totals</h2></div>
+        <ul id="summaryAttributes" class="summary-table-list"></ul>
+      </section>
+
+      <section class="card summary-section">
+        <div class="card-header"><h2>Adventure Goals Totals</h2></div>
+        <ul id="summaryAdventures" class="summary-table-list"></ul>
+      </section>
+
+      <section class="card summary-section">
+        <div class="card-header"><h2>Daily Quest Totals</h2></div>
+        <ul id="summaryDailyQuests" class="summary-table-list"></ul>
+      </section>
+
+      <p id="summaryStatus" class="status-text">Loading summary...</p>
+    </main>
+
+    <script type="module" src="/scripts/setup-supabase.js?v=5"></script>
+    <script type="module" src="/scripts/summary.js?v=1"></script>
+  </body>
+</html>

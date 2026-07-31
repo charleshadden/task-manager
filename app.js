@@ -81,6 +81,32 @@ const defaultChecklistSections = {
   fiveYear: [],
 };
 
+function createDefaultTotals() {
+  const dailyTaskCompletions = {};
+  const dailyTaskXpEarned = {};
+  const adventureCompletions = {};
+  const adventureXpEarned = {};
+
+  defaultUnconditionals.forEach((item) => {
+    dailyTaskCompletions[item.id] = 0;
+    dailyTaskXpEarned[item.id] = 0;
+  });
+
+  defaultConditionals.forEach((item) => {
+    adventureCompletions[item.id] = 0;
+    adventureXpEarned[item.id] = 0;
+  });
+
+  return {
+    dailyCompletions: 0,
+    dailyXpEarned: 0,
+    adventureCompletions,
+    adventureXpEarned,
+    dailyTaskCompletions,
+    dailyTaskXpEarned,
+  };
+}
+
 function createDefaultState() {
   return {
     unconditionals: [...defaultUnconditionals].map(normalizeUnconditionalItem),
@@ -89,6 +115,7 @@ function createDefaultState() {
     attributes: {},
     history: [],
     streakBonusesAwarded: [],
+    totals: createDefaultTotals(),
     playerClass: DEFAULT_PLAYER_CLASS,
     playerArchetype: DEFAULT_ARCHETYPE,
     assessmentApplied: false,
@@ -118,6 +145,13 @@ let currentUser = null;
 let state = createDefaultState();
 let reminderTimer = null;
 let midnightTimer = null;
+const socialHub = {
+  profile: { userId: '', displayName: '', photoUrl: '' },
+  following: [],
+  followers: [],
+  parties: [],
+  searchResults: [],
+};
 
 function persistLocalState() {
   if (!currentUser?.id) return;
@@ -126,6 +160,57 @@ function persistLocalState() {
 
 function updateStateTimestamp() {
   state.updatedAt = new Date().toISOString();
+}
+
+function ensureTotalsShape() {
+  if (!state.totals || typeof state.totals !== 'object') {
+    state.totals = createDefaultTotals();
+    return;
+  }
+
+  state.totals.dailyCompletions = Number.isFinite(Number(state.totals.dailyCompletions)) ? Number(state.totals.dailyCompletions) : 0;
+  state.totals.dailyXpEarned = Number.isFinite(Number(state.totals.dailyXpEarned)) ? Number(state.totals.dailyXpEarned) : 0;
+  state.totals.adventureCompletions = state.totals.adventureCompletions && typeof state.totals.adventureCompletions === 'object' ? state.totals.adventureCompletions : {};
+  state.totals.adventureXpEarned = state.totals.adventureXpEarned && typeof state.totals.adventureXpEarned === 'object' ? state.totals.adventureXpEarned : {};
+  state.totals.dailyTaskCompletions = state.totals.dailyTaskCompletions && typeof state.totals.dailyTaskCompletions === 'object' ? state.totals.dailyTaskCompletions : {};
+  state.totals.dailyTaskXpEarned = state.totals.dailyTaskXpEarned && typeof state.totals.dailyTaskXpEarned === 'object' ? state.totals.dailyTaskXpEarned : {};
+
+  state.unconditionals.forEach((task) => {
+    if (!task?.id) return;
+    const countValue = state.totals.dailyTaskCompletions[task.id];
+    const xpValue = state.totals.dailyTaskXpEarned[task.id];
+    state.totals.dailyTaskCompletions[task.id] = Number.isFinite(Number(countValue)) ? Number(countValue) : 0;
+    state.totals.dailyTaskXpEarned[task.id] = Number.isFinite(Number(xpValue)) ? Number(xpValue) : 0;
+  });
+
+  state.conditionals.forEach((task) => {
+    if (!task?.id) return;
+    const countValue = state.totals.adventureCompletions[task.id];
+    const xpValue = state.totals.adventureXpEarned[task.id];
+    state.totals.adventureCompletions[task.id] = Number.isFinite(Number(countValue)) ? Number(countValue) : 0;
+    state.totals.adventureXpEarned[task.id] = Number.isFinite(Number(xpValue)) ? Number(xpValue) : 0;
+  });
+}
+
+function updateLifetimeTotals(group, taskId, completionDelta, xpDelta) {
+  ensureTotalsShape();
+
+  if (group === 'daily') {
+    state.totals.dailyCompletions = Math.max(0, (Number(state.totals.dailyCompletions) || 0) + completionDelta);
+    state.totals.dailyXpEarned = Math.max(0, (Number(state.totals.dailyXpEarned) || 0) + xpDelta);
+    const prevCount = Number(state.totals.dailyTaskCompletions[taskId]) || 0;
+    const prevXp = Number(state.totals.dailyTaskXpEarned[taskId]) || 0;
+    state.totals.dailyTaskCompletions[taskId] = Math.max(0, prevCount + completionDelta);
+    state.totals.dailyTaskXpEarned[taskId] = Math.max(0, prevXp + xpDelta);
+    return;
+  }
+
+  if (group === 'adventure') {
+    const prevCount = Number(state.totals.adventureCompletions[taskId]) || 0;
+    const prevXp = Number(state.totals.adventureXpEarned[taskId]) || 0;
+    state.totals.adventureCompletions[taskId] = Math.max(0, prevCount + completionDelta);
+    state.totals.adventureXpEarned[taskId] = Math.max(0, prevXp + xpDelta);
+  }
 }
 
 function ensureStateShape() {
@@ -160,6 +245,7 @@ function ensureStateShape() {
   state.mood = state.mood || '';
   state.weightLog = Array.isArray(state.weightLog) ? state.weightLog : [];
   state.currentWeight = state.currentWeight || '';
+  ensureTotalsShape();
   state.updatedAt = state.updatedAt || new Date().toISOString();
   persistLocalState();
 }
@@ -188,6 +274,23 @@ const checklistSections = document.getElementById('checklistSections');
 const moodSelect = document.getElementById('moodSelect');
 const weightInput = document.getElementById('weightInput');
 const weightSaveButton = document.getElementById('weightSaveButton');
+const profilePhotoPreviewEl = document.getElementById('profilePhotoPreview');
+const profilePhotoFallbackEl = document.getElementById('profilePhotoFallback');
+const profileDisplayNameInput = document.getElementById('profileDisplayNameInput');
+const profilePhotoUrlInput = document.getElementById('profilePhotoUrlInput');
+const saveProfileButton = document.getElementById('saveProfileButton');
+const profileStatusEl = document.getElementById('profileStatus');
+const socialStatusEl = document.getElementById('socialStatus');
+const followSearchInput = document.getElementById('followSearchInput');
+const followSearchButton = document.getElementById('followSearchButton');
+const followSearchResultsEl = document.getElementById('followSearchResults');
+const followingListEl = document.getElementById('followingList');
+const followersListEl = document.getElementById('followersList');
+const createPartyNameInput = document.getElementById('createPartyNameInput');
+const createPartyButton = document.getElementById('createPartyButton');
+const joinPartyIdInput = document.getElementById('joinPartyIdInput');
+const joinPartyButton = document.getElementById('joinPartyButton');
+const partyListEl = document.getElementById('partyList');
 
 function getSyncAdapter() {
   return window.supabaseSync || null;
@@ -228,6 +331,261 @@ function updateAccountUi() {
   if (accountEmailEl) {
     accountEmailEl.textContent = currentUser?.email ? `Signed in as ${currentUser.email}` : 'Not signed in';
   }
+}
+
+function setProfileStatus(message) {
+  if (profileStatusEl) {
+    profileStatusEl.textContent = message;
+  }
+}
+
+function setSocialStatus(message) {
+  if (socialStatusEl) {
+    socialStatusEl.textContent = message;
+  }
+}
+
+function getProfileDisplayName(profile) {
+  const name = String(profile?.displayName || '').trim();
+  if (name) return name;
+  const fallback = String(currentUser?.email || '').split('@')[0];
+  return fallback || 'Adventurer';
+}
+
+function normalizePhotoUrl(url) {
+  const value = String(url || '').trim();
+  if (!value) return '';
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return '';
+    }
+    return parsed.toString();
+  } catch {
+    return '';
+  }
+}
+
+function getDisplayInitial(displayName) {
+  const first = String(displayName || '').trim().charAt(0);
+  return first ? first.toUpperCase() : 'A';
+}
+
+function createSocialListItem(profile, actionLabel = '', actionHandler = null) {
+  const item = document.createElement('li');
+  item.className = 'social-item';
+
+  const avatar = document.createElement('div');
+  avatar.className = 'social-avatar';
+  avatar.textContent = getDisplayInitial(getProfileDisplayName(profile));
+
+  const text = document.createElement('div');
+  text.className = 'social-item-text';
+  text.textContent = getProfileDisplayName(profile);
+
+  item.appendChild(avatar);
+  item.appendChild(text);
+
+  if (actionLabel && typeof actionHandler === 'function') {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'secondary-button';
+    button.textContent = actionLabel;
+    button.addEventListener('click', actionHandler);
+    item.appendChild(button);
+  }
+
+  return item;
+}
+
+function renderSocialHub() {
+  if (!profileDisplayNameInput || !profilePhotoUrlInput) {
+    return;
+  }
+
+  const displayName = getProfileDisplayName(socialHub.profile);
+  const photoUrl = normalizePhotoUrl(socialHub.profile?.photoUrl);
+
+  if (document.activeElement !== profileDisplayNameInput) {
+    profileDisplayNameInput.value = displayName;
+  }
+  if (document.activeElement !== profilePhotoUrlInput) {
+    profilePhotoUrlInput.value = socialHub.profile?.photoUrl || '';
+  }
+
+  if (profilePhotoPreviewEl && profilePhotoFallbackEl) {
+    if (photoUrl) {
+      profilePhotoPreviewEl.src = photoUrl;
+      profilePhotoPreviewEl.hidden = false;
+      profilePhotoFallbackEl.hidden = true;
+    } else {
+      profilePhotoPreviewEl.hidden = true;
+      profilePhotoFallbackEl.hidden = false;
+      profilePhotoFallbackEl.textContent = getDisplayInitial(displayName);
+    }
+  }
+
+  if (followSearchResultsEl) {
+    followSearchResultsEl.innerHTML = '';
+    if (socialHub.searchResults.length === 0) {
+      const empty = document.createElement('li');
+      empty.className = 'empty-state';
+      empty.textContent = 'No search results yet.';
+      followSearchResultsEl.appendChild(empty);
+    } else {
+      socialHub.searchResults.forEach((profile) => {
+        const isFollowing = socialHub.following.some((entry) => entry.userId === profile.userId);
+        const actionLabel = isFollowing ? 'Unfollow' : 'Follow';
+        const action = async () => {
+          const syncAdapter = getSyncAdapter();
+          if (!syncAdapter?.enabled) return;
+          const result = isFollowing
+            ? await syncAdapter.unfollowUser(profile.userId)
+            : await syncAdapter.followUser(profile.userId);
+          setSocialStatus(result.message);
+          await hydrateSocialHubData();
+        };
+        followSearchResultsEl.appendChild(createSocialListItem(profile, actionLabel, action));
+      });
+    }
+  }
+
+  if (followingListEl) {
+    followingListEl.innerHTML = '';
+    if (socialHub.following.length === 0) {
+      const empty = document.createElement('li');
+      empty.className = 'empty-state';
+      empty.textContent = 'You are not following anyone yet.';
+      followingListEl.appendChild(empty);
+    } else {
+      socialHub.following.forEach((profile) => {
+        const action = async () => {
+          const syncAdapter = getSyncAdapter();
+          if (!syncAdapter?.enabled) return;
+          const result = await syncAdapter.unfollowUser(profile.userId);
+          setSocialStatus(result.message);
+          await hydrateSocialHubData();
+        };
+        followingListEl.appendChild(createSocialListItem(profile, 'Unfollow', action));
+      });
+    }
+  }
+
+  if (followersListEl) {
+    followersListEl.innerHTML = '';
+    if (socialHub.followers.length === 0) {
+      const empty = document.createElement('li');
+      empty.className = 'empty-state';
+      empty.textContent = 'No followers yet.';
+      followersListEl.appendChild(empty);
+    } else {
+      socialHub.followers.forEach((profile) => {
+        followersListEl.appendChild(createSocialListItem(profile));
+      });
+    }
+  }
+
+  if (partyListEl) {
+    partyListEl.innerHTML = '';
+    if (socialHub.parties.length === 0) {
+      const empty = document.createElement('li');
+      empty.className = 'empty-state';
+      empty.textContent = 'No parties yet. Create one and invite allies.';
+      partyListEl.appendChild(empty);
+    } else {
+      socialHub.parties.forEach((party) => {
+        const item = document.createElement('li');
+        item.className = 'party-item';
+
+        const title = document.createElement('div');
+        title.className = 'party-title';
+        title.textContent = `${party.name} (${party.memberCount}/6)`;
+
+        const partyId = document.createElement('div');
+        partyId.className = 'party-id';
+        partyId.textContent = `Party ID: ${party.id}`;
+
+        const members = document.createElement('div');
+        members.className = 'party-members';
+        const memberNames = (party.members || []).map((member) => getProfileDisplayName(member));
+        members.textContent = memberNames.length > 0 ? memberNames.join(', ') : 'No members yet.';
+
+        item.appendChild(title);
+        item.appendChild(partyId);
+        item.appendChild(members);
+        partyListEl.appendChild(item);
+      });
+    }
+  }
+}
+
+async function hydrateSocialHubData() {
+  const syncAdapter = getSyncAdapter();
+  if (!syncAdapter?.enabled || !currentUser?.id) {
+    return;
+  }
+
+  if (
+    typeof syncAdapter.getMyProfile !== 'function'
+    || typeof syncAdapter.listFollowing !== 'function'
+    || typeof syncAdapter.listFollowers !== 'function'
+    || typeof syncAdapter.listMyParties !== 'function'
+  ) {
+    setSocialStatus('Social features need a newer deployment.');
+    return;
+  }
+
+  const [profileResult, followingResult, followersResult, partiesResult] = await Promise.all([
+    syncAdapter.getMyProfile(),
+    syncAdapter.listFollowing(),
+    syncAdapter.listFollowers(),
+    syncAdapter.listMyParties(),
+  ]);
+
+  const errors = [profileResult, followingResult, followersResult, partiesResult]
+    .filter((result) => !result.ok)
+    .map((result) => result.message)
+    .filter(Boolean);
+
+  if (profileResult.ok && profileResult.profile) {
+    socialHub.profile = profileResult.profile;
+  }
+  if (followingResult.ok) {
+    socialHub.following = followingResult.profiles || [];
+  }
+  if (followersResult.ok) {
+    socialHub.followers = followersResult.profiles || [];
+  }
+  if (partiesResult.ok) {
+    socialHub.parties = partiesResult.parties || [];
+  }
+
+  if (errors.length > 0) {
+    setSocialStatus(errors[0]);
+  } else {
+    setSocialStatus('Social hub synced.');
+  }
+
+  renderSocialHub();
+}
+
+async function runFollowSearch() {
+  const syncAdapter = getSyncAdapter();
+  if (!syncAdapter?.enabled || typeof syncAdapter.searchProfiles !== 'function') {
+    setSocialStatus('Profile search is not available yet.');
+    return;
+  }
+
+  const query = String(followSearchInput?.value || '').trim();
+  const result = await syncAdapter.searchProfiles(query);
+  if (!result.ok) {
+    setSocialStatus(result.message);
+    return;
+  }
+
+  socialHub.searchResults = result.profiles || [];
+  setSocialStatus(result.message);
+  renderSocialHub();
 }
 
 function getComparableTimestamp(value) {
@@ -305,6 +663,7 @@ async function hydrateStateFromSupabase() {
     ensureStateShape();
     lastSyncedUpdatedAt = result.updatedAt || result.state.updatedAt || '';
     render();
+    renderSocialHub();
     setSyncStatus(`Loaded Supabase data from ${formatSyncTime(lastSyncedUpdatedAt)}.`);
     return;
   }
@@ -485,6 +844,7 @@ function loadLocalState(user = currentUser) {
       attributes: parsed.attributes && typeof parsed.attributes === 'object' ? parsed.attributes : {},
       history: Array.isArray(parsed.history) ? parsed.history : [],
       streakBonusesAwarded: Array.isArray(parsed.streakBonusesAwarded) ? parsed.streakBonusesAwarded : [],
+      totals: parsed.totals && typeof parsed.totals === 'object' ? parsed.totals : createDefaultTotals(),
       playerClass: typeof parsed.playerClass === 'string' && parsed.playerClass.trim() ? parsed.playerClass.trim() : DEFAULT_PLAYER_CLASS,
       playerArchetype: typeof parsed.playerArchetype === 'string' && parsed.playerArchetype.trim() ? parsed.playerArchetype.trim() : DEFAULT_ARCHETYPE,
       assessmentApplied: Boolean(parsed.assessmentApplied),
@@ -906,11 +1266,13 @@ function renderDailyChecklist() {
           addAttributeXp(dailyTask.attribute, xpGain);
           state.unconditionals[taskIndex].completedDate = today;
           state.unconditionals[taskIndex].lastAwardedXp = xpGain;
+          updateLifetimeTotals('daily', dailyTask.id || `daily-${taskIndex}`, 1, xpGain);
         } else if (!checkbox.checked) {
           if (isCompletedToday || hasLegacyCredit) {
             const rollbackXp = Number(state.unconditionals[taskIndex].lastAwardedXp) || xpGain;
             addXp(-rollbackXp);
             addAttributeXp(dailyTask.attribute, -rollbackXp);
+            updateLifetimeTotals('daily', dailyTask.id || `daily-${taskIndex}`, -1, -rollbackXp);
           }
           state.unconditionals[taskIndex].completedDate = '';
           state.unconditionals[taskIndex].lastAwardedXp = 0;
@@ -1099,12 +1461,14 @@ function renderConditionalChecklist() {
         state.conditionals[index].completedDate = today;
         state.conditionals[index].xpEarned = (Number(state.conditionals[index].xpEarned) || 0) + xpGain;
         state.conditionals[index].lastAwardedXp = xpGain;
+        updateLifetimeTotals('adventure', conditional.id || `adventure-${index}`, 1, xpGain);
       } else if (!checkbox.checked) {
         if (isCompletedToday || hasLegacyCredit) {
           const rollbackXp = Number(state.conditionals[index].lastAwardedXp) || xpGain;
           addXp(-rollbackXp);
           addAttributeXp(conditional.attribute, -rollbackXp);
           state.conditionals[index].xpEarned = Math.max(0, (Number(state.conditionals[index].xpEarned) || 0) - rollbackXp);
+          updateLifetimeTotals('adventure', conditional.id || `adventure-${index}`, -1, -rollbackXp);
         }
         state.conditionals[index].completedDate = '';
         state.conditionals[index].lastAwardedXp = 0;
@@ -1527,6 +1891,79 @@ weightInput.addEventListener('keydown', (event) => {
   }
 });
 
+saveProfileButton?.addEventListener('click', async () => {
+  const syncAdapter = getSyncAdapter();
+  if (!syncAdapter?.enabled || typeof syncAdapter.updateMyProfile !== 'function') {
+    setProfileStatus('Profile updates are not available yet.');
+    return;
+  }
+
+  saveProfileButton.disabled = true;
+  const result = await syncAdapter.updateMyProfile({
+    displayName: profileDisplayNameInput?.value,
+    photoUrl: profilePhotoUrlInput?.value,
+  });
+  saveProfileButton.disabled = false;
+
+  if (!result.ok) {
+    setProfileStatus(result.message);
+    return;
+  }
+
+  if (result.profile) {
+    socialHub.profile = result.profile;
+  }
+  setProfileStatus('Profile saved.');
+  renderSocialHub();
+});
+
+followSearchButton?.addEventListener('click', () => {
+  runFollowSearch();
+});
+
+followSearchInput?.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    runFollowSearch();
+  }
+});
+
+createPartyButton?.addEventListener('click', async () => {
+  const syncAdapter = getSyncAdapter();
+  if (!syncAdapter?.enabled || typeof syncAdapter.createParty !== 'function') {
+    setSocialStatus('Party creation is not available yet.');
+    return;
+  }
+
+  const partyName = String(createPartyNameInput?.value || '').trim();
+  const result = await syncAdapter.createParty(partyName);
+  setSocialStatus(result.message);
+  if (!result.ok) return;
+
+  if (createPartyNameInput) {
+    createPartyNameInput.value = '';
+  }
+  await hydrateSocialHubData();
+});
+
+joinPartyButton?.addEventListener('click', async () => {
+  const syncAdapter = getSyncAdapter();
+  if (!syncAdapter?.enabled || typeof syncAdapter.joinParty !== 'function') {
+    setSocialStatus('Party joining is not available yet.');
+    return;
+  }
+
+  const partyId = String(joinPartyIdInput?.value || '').trim();
+  const result = await syncAdapter.joinParty(partyId);
+  setSocialStatus(result.message);
+  if (!result.ok) return;
+
+  if (joinPartyIdInput) {
+    joinPartyIdInput.value = '';
+  }
+  await hydrateSocialHubData();
+});
+
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/service-worker.js').catch(() => {});
 }
@@ -1590,6 +2027,7 @@ async function initializeApp() {
     scheduleReminders();
     render();
     await hydrateStateFromSupabase();
+    await hydrateSocialHubData();
     await syncAdapter.logReadWriteTest();
 
     syncAdapter.onAuthStateChange((session) => {

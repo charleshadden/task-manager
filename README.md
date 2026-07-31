@@ -54,6 +54,122 @@ with check (auth.uid()::text = device_id);
 
 This setup keeps one saved row per signed-in user. The app writes the authenticated user's Supabase auth ID into `device_id`, so each member gets isolated state without sharing a local device key.
 
+## Social features setup
+
+To enable profile photos, following, and parties, add these tables and policies:
+
+```sql
+create table if not exists public.profiles (
+	user_id uuid primary key references auth.users(id) on delete cascade,
+	display_name text not null,
+	photo_url text,
+	updated_at timestamptz not null default timezone('utc', now())
+);
+
+create table if not exists public.follows (
+	follower_id uuid not null references auth.users(id) on delete cascade,
+	followee_id uuid not null references auth.users(id) on delete cascade,
+	created_at timestamptz not null default timezone('utc', now()),
+	primary key (follower_id, followee_id),
+	check (follower_id <> followee_id)
+);
+
+create table if not exists public.parties (
+	id uuid primary key default gen_random_uuid(),
+	owner_id uuid not null references auth.users(id) on delete cascade,
+	name text not null,
+	created_at timestamptz not null default timezone('utc', now())
+);
+
+create table if not exists public.party_members (
+	party_id uuid not null references public.parties(id) on delete cascade,
+	user_id uuid not null references auth.users(id) on delete cascade,
+	joined_at timestamptz not null default timezone('utc', now()),
+	primary key (party_id, user_id)
+);
+
+alter table public.profiles enable row level security;
+alter table public.follows enable row level security;
+alter table public.parties enable row level security;
+alter table public.party_members enable row level security;
+
+drop policy if exists "profiles_read_all" on public.profiles;
+drop policy if exists "profiles_write_own" on public.profiles;
+create policy "profiles_read_all"
+on public.profiles
+for select
+to authenticated
+using (true);
+create policy "profiles_write_own"
+on public.profiles
+for all
+to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+drop policy if exists "follows_read_all" on public.follows;
+drop policy if exists "follows_write_own" on public.follows;
+create policy "follows_read_all"
+on public.follows
+for select
+to authenticated
+using (true);
+create policy "follows_write_own"
+on public.follows
+for all
+to authenticated
+using (auth.uid() = follower_id)
+with check (auth.uid() = follower_id);
+
+drop policy if exists "parties_read_all" on public.parties;
+drop policy if exists "parties_create_own" on public.parties;
+drop policy if exists "parties_update_owner" on public.parties;
+create policy "parties_read_all"
+on public.parties
+for select
+to authenticated
+using (true);
+create policy "parties_create_own"
+on public.parties
+for insert
+to authenticated
+with check (auth.uid() = owner_id);
+create policy "parties_update_owner"
+on public.parties
+for update
+to authenticated
+using (auth.uid() = owner_id)
+with check (auth.uid() = owner_id);
+
+drop policy if exists "party_members_read_all" on public.party_members;
+drop policy if exists "party_members_insert_self" on public.party_members;
+drop policy if exists "party_members_delete_self_or_owner" on public.party_members;
+create policy "party_members_read_all"
+on public.party_members
+for select
+to authenticated
+using (true);
+create policy "party_members_insert_self"
+on public.party_members
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+create policy "party_members_delete_self_or_owner"
+on public.party_members
+for delete
+to authenticated
+using (
+	auth.uid() = user_id
+	or exists (
+		select 1 from public.parties p
+		where p.id = party_members.party_id
+		and p.owner_id = auth.uid()
+	)
+);
+```
+
+The app enforces a max of 6 members per party in client logic. If you want strict server-side enforcement, add a trigger that blocks inserts into `party_members` when a party already has 6 rows.
+
 ## Run locally
 
 From this folder, run:
