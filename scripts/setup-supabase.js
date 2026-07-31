@@ -2,6 +2,10 @@ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../supabaseConfig.js';
 
 const SUPABASE_TABLE = 'habit_states';
+const PROFILES_TABLE = 'profiles';
+const FOLLOWS_TABLE = 'follows';
+const PARTIES_TABLE = 'parties';
+const PARTY_MEMBERS_TABLE = 'party_members';
 const LOCAL_STATE_KEY = 'habit-checklist-v1';
 
 function normalizeSupabaseUrl(url) {
@@ -41,6 +45,30 @@ function getLocalStateStorageKey(userId) {
 
 function createErrorResult(message) {
 	return { ok: false, message };
+}
+
+function describeTableError(prefix, tableName, error) {
+	if (!error) {
+		return prefix;
+	}
+
+	const message = String(error.message || '').trim();
+	if (!message) {
+		return prefix;
+	}
+
+	if (
+		message.includes(`relation \"${tableName}\" does not exist`) ||
+		message.includes(`Could not find the table 'public.${tableName}' in the schema cache`)
+	) {
+		return `${prefix}. Create the ${tableName} table in Supabase first.`;
+	}
+
+	if (message.toLowerCase().includes('row-level security')) {
+		return `${prefix}. Add RLS policies that allow this action for ${tableName}.`;
+	}
+
+	return `${prefix}. ${message}`;
 }
 
 async function getSession() {
@@ -419,6 +447,556 @@ async function saveState(state) {
 	};
 }
 
+function getDefaultDisplayNameFromUser(user) {
+	const fromMetadata = String(user?.user_metadata?.displayName || '').trim();
+	if (fromMetadata) {
+		return fromMetadata;
+	}
+
+	const email = String(user?.email || '');
+	if (email.includes('@')) {
+		return email.split('@')[0];
+	}
+
+	return 'Adventurer';
+}
+
+function normalizeProfileRow(row, fallbackUser = null) {
+	if (!row) {
+		return {
+			userId: fallbackUser?.id || '',
+			displayName: getDefaultDisplayNameFromUser(fallbackUser),
+			photoUrl: '',
+		};
+	}
+
+	return {
+		userId: row.user_id,
+		displayName: row.display_name || getDefaultDisplayNameFromUser(fallbackUser),
+		photoUrl: row.photo_url || '',
+	};
+}
+
+async function ensureProfile() {
+	const ownerResult = await getStateOwner();
+	if (!ownerResult.ok) {
+		return {
+			ok: false,
+			message: ownerResult.message,
+			profile: null,
+		};
+	}
+
+	const user = ownerResult.user;
+	const defaultDisplayName = getDefaultDisplayNameFromUser(user);
+
+	const { data, error } = await supabase
+		.from(PROFILES_TABLE)
+		.upsert(
+			{
+				user_id: ownerResult.ownerKey,
+				display_name: defaultDisplayName,
+				photo_url: String(user?.user_metadata?.photoUrl || ''),
+				updated_at: new Date().toISOString(),
+			},
+			{ onConflict: 'user_id', ignoreDuplicates: false }
+		)
+		.select('user_id, display_name, photo_url')
+		.single();
+
+	if (error) {
+		return {
+			ok: false,
+			message: describeTableError('Could not initialize your profile', PROFILES_TABLE, error),
+			profile: null,
+		};
+	}
+
+	return {
+		ok: true,
+		message: 'Profile is ready.',
+		profile: normalizeProfileRow(data, user),
+	};
+}
+
+async function getMyProfile() {
+	const profileResult = await ensureProfile();
+	if (!profileResult.ok) {
+		return profileResult;
+	}
+
+	return {
+		ok: true,
+		message: 'Profile loaded.',
+		profile: profileResult.profile,
+	};
+}
+
+async function updateMyProfile({ displayName, photoUrl }) {
+	const ownerResult = await getStateOwner();
+	if (!ownerResult.ok) {
+		return {
+			ok: false,
+			message: ownerResult.message,
+			profile: null,
+		};
+	}
+
+	const safeDisplayName = String(displayName || '').trim() || getDefaultDisplayNameFromUser(ownerResult.user);
+	const safePhotoUrl = String(photoUrl || '').trim();
+
+	const { data, error } = await supabase
+		.from(PROFILES_TABLE)
+		.upsert(
+			{
+				user_id: ownerResult.ownerKey,
+				display_name: safeDisplayName,
+				photo_url: safePhotoUrl,
+				updated_at: new Date().toISOString(),
+			},
+			{ onConflict: 'user_id' }
+		)
+		.select('user_id, display_name, photo_url')
+		.single();
+
+	if (error) {
+		return {
+			ok: false,
+			message: describeTableError('Could not update your profile', PROFILES_TABLE, error),
+			profile: null,
+		};
+	}
+
+	return {
+		ok: true,
+		message: 'Profile updated.',
+		profile: normalizeProfileRow(data, ownerResult.user),
+	};
+}
+
+async function searchProfiles(query) {
+	const ownerResult = await getStateOwner();
+	if (!ownerResult.ok) {
+		return {
+			ok: false,
+			message: ownerResult.message,
+			profiles: [],
+		};
+	}
+
+	const safeQuery = String(query || '').trim();
+	if (safeQuery.length < 2) {
+		return {
+			ok: true,
+			message: 'Type at least 2 characters to search.',
+			profiles: [],
+		};
+	}
+
+	const { data, error } = await supabase
+		.from(PROFILES_TABLE)
+		.select('user_id, display_name, photo_url')
+		.ilike('display_name', `%${safeQuery}%`)
+		.neq('user_id', ownerResult.ownerKey)
+		.limit(12);
+
+	if (error) {
+		return {
+			ok: false,
+			message: describeTableError('Could not search profiles', PROFILES_TABLE, error),
+			profiles: [],
+		};
+	}
+
+	return {
+		ok: true,
+		message: data?.length ? 'Profiles found.' : 'No matching profiles yet.',
+		profiles: (data || []).map((row) => normalizeProfileRow(row, null)),
+	};
+}
+
+async function followUser(targetUserId) {
+	const ownerResult = await getStateOwner();
+	if (!ownerResult.ok) {
+		return createErrorResult(ownerResult.message);
+	}
+
+	const target = String(targetUserId || '').trim();
+	if (!target) {
+		return createErrorResult('Pick a user before following.');
+	}
+
+	if (target === ownerResult.ownerKey) {
+		return createErrorResult('You cannot follow yourself.');
+	}
+
+	const { error } = await supabase
+		.from(FOLLOWS_TABLE)
+		.upsert(
+			{
+				follower_id: ownerResult.ownerKey,
+				followee_id: target,
+				created_at: new Date().toISOString(),
+			},
+			{ onConflict: 'follower_id,followee_id' }
+		);
+
+	if (error) {
+		return createErrorResult(describeTableError('Could not follow that user', FOLLOWS_TABLE, error));
+	}
+
+	return { ok: true, message: 'Now following user.' };
+}
+
+async function unfollowUser(targetUserId) {
+	const ownerResult = await getStateOwner();
+	if (!ownerResult.ok) {
+		return createErrorResult(ownerResult.message);
+	}
+
+	const target = String(targetUserId || '').trim();
+	if (!target) {
+		return createErrorResult('Pick a user before unfollowing.');
+	}
+
+	const { error } = await supabase
+		.from(FOLLOWS_TABLE)
+		.delete()
+		.eq('follower_id', ownerResult.ownerKey)
+		.eq('followee_id', target);
+
+	if (error) {
+		return createErrorResult(describeTableError('Could not unfollow that user', FOLLOWS_TABLE, error));
+	}
+
+	return { ok: true, message: 'Unfollowed user.' };
+}
+
+async function listFollowing() {
+	const ownerResult = await getStateOwner();
+	if (!ownerResult.ok) {
+		return {
+			ok: false,
+			message: ownerResult.message,
+			profiles: [],
+		};
+	}
+
+	const { data, error } = await supabase
+		.from(FOLLOWS_TABLE)
+		.select('followee_id')
+		.eq('follower_id', ownerResult.ownerKey);
+
+	if (error) {
+		return {
+			ok: false,
+			message: describeTableError('Could not load following list', FOLLOWS_TABLE, error),
+			profiles: [],
+		};
+	}
+
+	const followeeIds = (data || []).map((row) => row.followee_id).filter(Boolean);
+	if (followeeIds.length === 0) {
+		return {
+			ok: true,
+			message: 'Not following anyone yet.',
+			profiles: [],
+		};
+	}
+
+	const { data: profileRows, error: profileError } = await supabase
+		.from(PROFILES_TABLE)
+		.select('user_id, display_name, photo_url')
+		.in('user_id', followeeIds);
+
+	if (profileError) {
+		return {
+			ok: false,
+			message: describeTableError('Could not load following profiles', PROFILES_TABLE, profileError),
+			profiles: [],
+		};
+	}
+
+	return {
+		ok: true,
+		message: 'Following loaded.',
+		profiles: (profileRows || []).map((row) => normalizeProfileRow(row, null)),
+	};
+}
+
+async function listFollowers() {
+	const ownerResult = await getStateOwner();
+	if (!ownerResult.ok) {
+		return {
+			ok: false,
+			message: ownerResult.message,
+			profiles: [],
+		};
+	}
+
+	const { data, error } = await supabase
+		.from(FOLLOWS_TABLE)
+		.select('follower_id')
+		.eq('followee_id', ownerResult.ownerKey);
+
+	if (error) {
+		return {
+			ok: false,
+			message: describeTableError('Could not load followers', FOLLOWS_TABLE, error),
+			profiles: [],
+		};
+	}
+
+	const followerIds = (data || []).map((row) => row.follower_id).filter(Boolean);
+	if (followerIds.length === 0) {
+		return {
+			ok: true,
+			message: 'No followers yet.',
+			profiles: [],
+		};
+	}
+
+	const { data: profileRows, error: profileError } = await supabase
+		.from(PROFILES_TABLE)
+		.select('user_id, display_name, photo_url')
+		.in('user_id', followerIds);
+
+	if (profileError) {
+		return {
+			ok: false,
+			message: describeTableError('Could not load follower profiles', PROFILES_TABLE, profileError),
+			profiles: [],
+		};
+	}
+
+	return {
+		ok: true,
+		message: 'Followers loaded.',
+		profiles: (profileRows || []).map((row) => normalizeProfileRow(row, null)),
+	};
+}
+
+async function createParty(name) {
+	const ownerResult = await getStateOwner();
+	if (!ownerResult.ok) {
+		return {
+			ok: false,
+			message: ownerResult.message,
+			party: null,
+		};
+	}
+
+	const safeName = String(name || '').trim();
+	if (!safeName) {
+		return {
+			ok: false,
+			message: 'Party name is required.',
+			party: null,
+		};
+	}
+
+	const { data, error } = await supabase
+		.from(PARTIES_TABLE)
+		.insert({
+			owner_id: ownerResult.ownerKey,
+			name: safeName,
+			created_at: new Date().toISOString(),
+		})
+		.select('id, owner_id, name, created_at')
+		.single();
+
+	if (error) {
+		return {
+			ok: false,
+			message: describeTableError('Could not create party', PARTIES_TABLE, error),
+			party: null,
+		};
+	}
+
+	const memberInsert = await supabase
+		.from(PARTY_MEMBERS_TABLE)
+		.upsert(
+			{
+				party_id: data.id,
+				user_id: ownerResult.ownerKey,
+				joined_at: new Date().toISOString(),
+			},
+			{ onConflict: 'party_id,user_id' }
+		);
+
+	if (memberInsert.error) {
+		return {
+			ok: false,
+			message: describeTableError('Party created but could not add you as a member', PARTY_MEMBERS_TABLE, memberInsert.error),
+			party: null,
+		};
+	}
+
+	return {
+		ok: true,
+		message: 'Party created.',
+		party: data,
+	};
+}
+
+async function joinParty(partyId) {
+	const ownerResult = await getStateOwner();
+	if (!ownerResult.ok) {
+		return createErrorResult(ownerResult.message);
+	}
+
+	const safePartyId = String(partyId || '').trim();
+	if (!safePartyId) {
+		return createErrorResult('Party ID is required.');
+	}
+
+	const { data: existingMembership, error: existingMembershipError } = await supabase
+		.from(PARTY_MEMBERS_TABLE)
+		.select('party_id')
+		.eq('party_id', safePartyId)
+		.eq('user_id', ownerResult.ownerKey)
+		.maybeSingle();
+
+	if (existingMembershipError) {
+		return createErrorResult(describeTableError('Could not check your party membership', PARTY_MEMBERS_TABLE, existingMembershipError));
+	}
+
+	if (existingMembership) {
+		return { ok: true, message: 'You are already in this party.' };
+	}
+
+	const { count, error: countError } = await supabase
+		.from(PARTY_MEMBERS_TABLE)
+		.select('user_id', { head: true, count: 'exact' })
+		.eq('party_id', safePartyId);
+
+	if (countError) {
+		return createErrorResult(describeTableError('Could not check party size', PARTY_MEMBERS_TABLE, countError));
+	}
+
+	if ((count || 0) >= 6) {
+		return createErrorResult('That party is already full (6 members max).');
+	}
+
+	const { error } = await supabase
+		.from(PARTY_MEMBERS_TABLE)
+		.insert({
+			party_id: safePartyId,
+			user_id: ownerResult.ownerKey,
+			joined_at: new Date().toISOString(),
+		});
+
+	if (error) {
+		return createErrorResult(describeTableError('Could not join that party', PARTY_MEMBERS_TABLE, error));
+	}
+
+	return { ok: true, message: 'Joined party.' };
+}
+
+async function listMyParties() {
+	const ownerResult = await getStateOwner();
+	if (!ownerResult.ok) {
+		return {
+			ok: false,
+			message: ownerResult.message,
+			parties: [],
+		};
+	}
+
+	const { data: memberships, error: membershipError } = await supabase
+		.from(PARTY_MEMBERS_TABLE)
+		.select('party_id')
+		.eq('user_id', ownerResult.ownerKey);
+
+	if (membershipError) {
+		return {
+			ok: false,
+			message: describeTableError('Could not load your party memberships', PARTY_MEMBERS_TABLE, membershipError),
+			parties: [],
+		};
+	}
+
+	const partyIds = (memberships || []).map((row) => row.party_id).filter(Boolean);
+	if (partyIds.length === 0) {
+		return {
+			ok: true,
+			message: 'No parties yet.',
+			parties: [],
+		};
+	}
+
+	const { data: parties, error: partiesError } = await supabase
+		.from(PARTIES_TABLE)
+		.select('id, owner_id, name, created_at')
+		.in('id', partyIds)
+		.order('created_at', { ascending: false });
+
+	if (partiesError) {
+		return {
+			ok: false,
+			message: describeTableError('Could not load parties', PARTIES_TABLE, partiesError),
+			parties: [],
+		};
+	}
+
+	const { data: members, error: membersError } = await supabase
+		.from(PARTY_MEMBERS_TABLE)
+		.select('party_id, user_id')
+		.in('party_id', partyIds);
+
+	if (membersError) {
+		return {
+			ok: false,
+			message: describeTableError('Could not load party members', PARTY_MEMBERS_TABLE, membersError),
+			parties: [],
+		};
+	}
+
+	const memberIds = [...new Set((members || []).map((row) => row.user_id).filter(Boolean))];
+	const { data: memberProfiles, error: memberProfilesError } = await supabase
+		.from(PROFILES_TABLE)
+		.select('user_id, display_name, photo_url')
+		.in('user_id', memberIds);
+
+	if (memberProfilesError) {
+		return {
+			ok: false,
+			message: describeTableError('Could not load member profiles', PROFILES_TABLE, memberProfilesError),
+			parties: [],
+		};
+	}
+
+	const profileById = new Map((memberProfiles || []).map((row) => [row.user_id, normalizeProfileRow(row)]));
+	const membersByPartyId = (members || []).reduce((accumulator, row) => {
+		if (!accumulator[row.party_id]) {
+			accumulator[row.party_id] = [];
+		}
+		const profile = profileById.get(row.user_id) || {
+			userId: row.user_id,
+			displayName: 'Unknown Adventurer',
+			photoUrl: '',
+		};
+		accumulator[row.party_id].push(profile);
+		return accumulator;
+	}, {});
+
+	return {
+		ok: true,
+		message: 'Parties loaded.',
+		parties: (parties || []).map((party) => {
+			const partyMembers = membersByPartyId[party.id] || [];
+			return {
+				id: party.id,
+				name: party.name,
+				ownerId: party.owner_id,
+				isOwner: party.owner_id === ownerResult.ownerKey,
+				memberCount: partyMembers.length,
+				members: partyMembers,
+			};
+		}),
+	};
+}
+
 window.supabase = supabase;
 window.supabaseSync = {
 	enabled: Boolean(supabase),
@@ -436,4 +1014,14 @@ window.supabaseSync = {
 	logReadWriteTest,
 	loadState,
 	saveState,
+	getMyProfile,
+	updateMyProfile,
+	searchProfiles,
+	followUser,
+	unfollowUser,
+	listFollowing,
+	listFollowers,
+	createParty,
+	joinParty,
+	listMyParties,
 };

@@ -357,6 +357,163 @@ button:hover {
   background: #fff;
 }
 
+.social-card h3 {
+  margin: 8px 0;
+  font-size: 0.95rem;
+}
+
+.profile-editor {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  align-items: start;
+}
+
+.profile-avatar-wrap {
+  width: 72px;
+  height: 72px;
+}
+
+.profile-avatar,
+.profile-avatar-fallback {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 1px solid rgba(135, 91, 44, 0.35);
+  background: #fff;
+}
+
+.profile-avatar {
+  object-fit: cover;
+}
+
+.profile-avatar-fallback {
+  display: grid;
+  place-items: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #7b5433;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.profile-fields {
+  display: grid;
+  gap: 8px;
+}
+
+.social-field {
+  display: grid;
+  gap: 5px;
+}
+
+.social-field span {
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #7b5433;
+}
+
+.social-field input {
+  border: 1px solid rgba(135, 91, 44, 0.24);
+  border-radius: 12px;
+  padding: 8px 10px;
+  background: #fff;
+}
+
+.social-search-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.social-search-row input {
+  border: 1px solid rgba(135, 91, 44, 0.24);
+  border-radius: 12px;
+  padding: 8px 10px;
+  background: #fff;
+}
+
+.social-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.social-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.social-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid rgba(135, 91, 44, 0.2);
+  border-radius: 12px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.social-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #6b3d1f;
+  background: rgba(211, 170, 83, 0.22);
+}
+
+.social-item-text {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.party-controls {
+  margin-top: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.social-inline {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.party-item {
+  border: 1px solid rgba(135, 91, 44, 0.24);
+  border-radius: 12px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.party-title {
+  font-weight: 700;
+}
+
+.party-id {
+  margin-top: 2px;
+  font-size: 0.75rem;
+  color: #7b5433;
+}
+
+.party-members {
+  margin-top: 4px;
+  font-size: 0.85rem;
+  color: #3f2a1d;
+}
+
 .hydration-cups {
   display: grid;
   grid-template-columns: repeat(10, minmax(0, 1fr));
@@ -534,6 +691,16 @@ button:hover {
   .steps-input {
     width: 100%;
   }
+
+  .profile-editor {
+    grid-template-columns: 1fr;
+  }
+
+  .social-search-row,
+  .social-inline,
+  .social-columns {
+    grid-template-columns: 1fr;
+  }
 }
 
 .auth-gate {
@@ -558,6 +725,52 @@ button:hover {
   align-items: center;
   gap: 12px;
   margin-bottom: 12px;
+}
+
+.account-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.link-button {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.summary-section {
+  margin-top: 12px;
+}
+
+.summary-table-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.summary-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid rgba(135, 91, 44, 0.2);
+  border-radius: 12px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.summary-row-label {
+  min-width: 0;
+  font-weight: 600;
+}
+
+.summary-row-stats {
+  font-size: 0.82rem;
+  color: #7b5433;
+  white-space: nowrap;
 }
 
 .auth-shell {
@@ -684,11 +897,25 @@ button:hover {
     align-items: stretch;
   }
 
+  .account-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .account-actions > * {
+    flex: 1;
+    justify-content: center;
+  }
+
   .auth-card {
     padding: 22px;
   }
 
   .assessment-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-row {
     grid-template-columns: 1fr;
   }
 }
