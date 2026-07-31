@@ -40,7 +40,7 @@ async function initializeAuthPage() {
     return;
   }
 
-  const verifyResult = await authAdapter.verifyOtpFromUrl();
+  const verifyResult = await authAdapter.consumeAuthRedirect();
   if (!verifyResult.ok) {
     setStatus(verifyResult.message);
     return;

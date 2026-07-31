@@ -120,6 +120,53 @@ async function verifyOtpFromUrl() {
 	};
 }
 
+async function exchangeCodeFromUrl() {
+	if (!supabase) {
+		return createErrorResult('Supabase auth is not configured.');
+	}
+
+	const params = new URLSearchParams(window.location.search);
+	const code = params.get('code');
+
+	if (!code) {
+		return {
+			ok: true,
+			message: 'No auth code found.',
+			session: null,
+		};
+	}
+
+	const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+	if (error) {
+		return createErrorResult(`Could not finish sign-in from the email link. ${error.message}`);
+	}
+
+	return {
+		ok: true,
+		message: 'Email link sign-in completed.',
+		session: data.session || null,
+		user: data.user || null,
+	};
+}
+
+async function consumeAuthRedirect() {
+	const params = new URLSearchParams(window.location.search);
+
+	if (params.get('code')) {
+		return exchangeCodeFromUrl();
+	}
+
+	if (params.get('token_hash') && params.get('type')) {
+		return verifyOtpFromUrl();
+	}
+
+	return {
+		ok: true,
+		message: 'No auth redirect parameters found.',
+		session: null,
+	};
+}
+
 function clearAuthParamsFromUrl() {
 	const url = new URL(window.location.href);
 	url.searchParams.delete('token_hash');
@@ -128,6 +175,7 @@ function clearAuthParamsFromUrl() {
 	url.searchParams.delete('error');
 	url.searchParams.delete('error_code');
 	url.searchParams.delete('error_description');
+	url.hash = '';
 	window.history.replaceState({}, document.title, `${url.pathname}${url.search}${url.hash}`);
 }
 
@@ -375,6 +423,7 @@ window.supabaseSync = {
 	getSession,
 	getCurrentUser,
 	onAuthStateChange,
+	consumeAuthRedirect,
 	verifyOtpFromUrl,
 	clearAuthParamsFromUrl,
 	signUp,
