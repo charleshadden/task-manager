@@ -34,44 +34,60 @@ function setStatus(message) {
 }
 
 async function initializeAuthPage() {
-  const authAdapter = getAuthAdapter();
-  if (!authAdapter?.enabled) {
-    setStatus('Supabase auth is not configured.');
-    return;
-  }
-
-  const verifyResult = await authAdapter.consumeAuthRedirect();
-  if (!verifyResult.ok) {
-    setStatus(verifyResult.message);
-    return;
-  }
-
-  if (verifyResult.session?.user) {
-    authAdapter.clearAuthParamsFromUrl();
-    setStatus('Email verified. Redirecting...');
-    redirectToApp();
-    return;
-  }
-
-  const sessionResult = await authAdapter.getSession();
-  if (!sessionResult.ok) {
-    setStatus(sessionResult.message);
-    return;
-  }
-
-  if (sessionResult.session?.user) {
-    authAdapter.clearAuthParamsFromUrl();
-    redirectToApp();
-    return;
-  }
-
-  setStatus(getMode() === 'signup' ? 'Create an account to start syncing your own checklist.' : 'Log in to load your saved checklist.');
-
-  authAdapter.onAuthStateChange((session) => {
-    if (session?.user) {
-      redirectToApp();
+  try {
+    const authAdapter = getAuthAdapter();
+    if (!authAdapter?.enabled) {
+      setStatus('Supabase auth is not configured.');
+      return;
     }
-  });
+
+    if (typeof authAdapter.getSession !== 'function') {
+      setStatus('Auth module is outdated. Hard refresh this page and redeploy if needed.');
+      return;
+    }
+
+    if (typeof authAdapter.consumeAuthRedirect === 'function') {
+      const verifyResult = await authAdapter.consumeAuthRedirect();
+      if (!verifyResult.ok) {
+        setStatus(verifyResult.message);
+        return;
+      }
+
+      if (verifyResult.session?.user) {
+        if (typeof authAdapter.clearAuthParamsFromUrl === 'function') {
+          authAdapter.clearAuthParamsFromUrl();
+        }
+        setStatus('Email verified. Redirecting...');
+        redirectToApp();
+        return;
+      }
+    }
+
+    const sessionResult = await authAdapter.getSession();
+    if (!sessionResult.ok) {
+      setStatus(sessionResult.message);
+      return;
+    }
+
+    if (sessionResult.session?.user) {
+      if (typeof authAdapter.clearAuthParamsFromUrl === 'function') {
+        authAdapter.clearAuthParamsFromUrl();
+      }
+      redirectToApp();
+      return;
+    }
+
+    setStatus(getMode() === 'signup' ? 'Create an account to start syncing your own checklist.' : 'Log in to load your saved checklist.');
+
+    authAdapter.onAuthStateChange((session) => {
+      if (session?.user) {
+        redirectToApp();
+      }
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unexpected auth initialization error.';
+    setStatus(`Could not initialize authentication. ${message}`);
+  }
 }
 
 authForm?.addEventListener('submit', async (event) => {
