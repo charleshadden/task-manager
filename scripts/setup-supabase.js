@@ -198,7 +198,7 @@ async function signUp(email, password) {
 
 	return {
 		ok: true,
-		message: data.session ? 'Signed up successfully.' : 'Account created. Confirmation may be required.',
+		message: data.session ? 'Signed up successfully.' : 'Account created. Email confirmation may still be enabled in Supabase Auth.',
 		session: data.session || null,
 		user: data.user || null,
 	};

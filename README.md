@@ -8,9 +8,9 @@ This app loads Supabase settings from `supabaseConfig.js`.
 
 For a static deployment such as Vercel, `supabaseConfig.js` must be included in the repo so the browser can load your public Supabase URL and anon key at runtime. The setup script will normalize a pasted REST URL such as `https://your-project.supabase.co/rest/v1/` to the project URL expected by the Supabase client.
 
-Enable the Email provider in Supabase Auth so members can create accounts with email and password.
+Enable the Email provider in Supabase Auth so members can create accounts with email and password. Email confirmation can be turned on or off depending on how strict you want signup to be.
 
-In Supabase Auth URL settings, set your Site URL to your deployed app URL and add both your local and deployed auth pages to the Redirect URLs list, for example:
+If email confirmation is enabled, set your Site URL to your deployed app URL and add both your local and deployed auth pages to the Redirect URLs list, for example:
 
 - `http://127.0.0.1:8001/login.html`
 - `http://localhost:8000/login.html`

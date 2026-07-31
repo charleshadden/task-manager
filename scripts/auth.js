@@ -102,7 +102,7 @@ authForm?.addEventListener('submit', async (event) => {
   }
 
   if (mode === 'signup' && !result.session) {
-    setStatus('Account created. Check your email for the confirmation link. It will return here after verification.');
+    setStatus('Account created. If email confirmation is enabled in Supabase, check your email. Otherwise log in now.');
     authForm.reset();
     return;
   }
