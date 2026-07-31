@@ -1135,6 +1135,18 @@ async function initializeApp() {
   }
 
   setBootStatus('Checking your account...');
+  const authRedirectResult = await syncAdapter.consumeAuthRedirect();
+
+  if (!authRedirectResult.ok) {
+    setBootStatus(authRedirectResult.message);
+    setSyncStatus(authRedirectResult.message);
+    return;
+  }
+
+  if (authRedirectResult.session?.user) {
+    syncAdapter.clearAuthParamsFromUrl();
+  }
+
   const sessionResult = await syncAdapter.getSession();
 
   if (!sessionResult.ok) {
