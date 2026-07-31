@@ -305,6 +305,84 @@ button:hover {
   font-size: 0.8rem;
 }
 
+.conditional-details {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(135, 91, 44, 0.28);
+}
+
+.conditional-field {
+  display: grid;
+  gap: 6px;
+}
+
+.conditional-field-label {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #7b5433;
+}
+
+.conditional-field-input {
+  border: 1px solid rgba(135, 91, 44, 0.24);
+  border-radius: 10px;
+  padding: 7px 9px;
+  background: #fff;
+}
+
+.conditional-field-boolean {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+
+.conditional-field-boolean input[type='checkbox'] {
+  width: 20px;
+  height: 20px;
+}
+
+.steps-control {
+  display: inline-flex;
+  align-items: center;
+}
+
+.steps-input {
+  width: 120px;
+  border: 1px solid rgba(135, 91, 44, 0.24);
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: #fff;
+}
+
+.hydration-cups {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.cup-emoji {
+  border: 1px solid rgba(135, 91, 44, 0.24);
+  background: #fff;
+  border-radius: 8px;
+  padding: 6px 0;
+  line-height: 1;
+  font-size: 1rem;
+}
+
+.cup-emoji.filled {
+  background: rgba(95, 169, 255, 0.2);
+  border-color: rgba(69, 130, 230, 0.45);
+}
+
+@media (max-width: 560px) {
+  .hydration-cups {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
 .priority-select {
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -452,6 +530,10 @@ button:hover {
     margin-left: 0;
     justify-content: space-between;
   }
+
+  .steps-input {
+    width: 100%;
+  }
 }
 
 .auth-gate {
@@ -516,6 +598,13 @@ button:hover {
   color: #d3aa53;
 }
 
+.auth-help {
+  font-size: 0.74rem;
+  line-height: 1.35;
+  color: #d8b681;
+  letter-spacing: 0.01em;
+}
+
 .auth-field input {
   width: 100%;
   border: 1px solid rgba(199, 154, 59, 0.35);
@@ -523,6 +612,61 @@ button:hover {
   padding: 12px 14px;
   background: rgba(255, 248, 232, 0.95);
   color: #3f2a1d;
+}
+
+.auth-field select {
+  width: 100%;
+  border: 1px solid rgba(199, 154, 59, 0.35);
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: rgba(255, 248, 232, 0.95);
+  color: #3f2a1d;
+}
+
+.assessment-panel {
+  border: 1px solid rgba(199, 154, 59, 0.35);
+  border-radius: 16px;
+  padding: 14px;
+  background: rgba(255, 246, 224, 0.07);
+}
+
+.assessment-panel h2 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  color: #f3c96d;
+  letter-spacing: 0.04em;
+}
+
+.assessment-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.assessment-result {
+  margin-top: 12px;
+  border-top: 1px dashed rgba(199, 154, 59, 0.35);
+  padding-top: 10px;
+}
+
+.assessment-advanced {
+  margin-top: 10px;
+  border: 1px dashed rgba(199, 154, 59, 0.4);
+  border-radius: 12px;
+  padding: 8px 10px;
+  background: rgba(255, 246, 224, 0.05);
+}
+
+.assessment-advanced summary {
+  cursor: pointer;
+  color: #f3c96d;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.assessment-grid--advanced {
+  margin-top: 10px;
 }
 
 .auth-switch {
@@ -542,6 +686,10 @@ button:hover {
 
   .auth-card {
     padding: 22px;
+  }
+
+  .assessment-grid {
+    grid-template-columns: 1fr;
   }
 }
 

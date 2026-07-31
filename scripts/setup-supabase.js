@@ -179,16 +179,19 @@ function clearAuthParamsFromUrl() {
 	window.history.replaceState({}, document.title, `${url.pathname}${url.search}${url.hash}`);
 }
 
-async function signUp(email, password) {
+async function signUp(email, password, profileMetadata = null) {
 	if (!supabase) {
 		return createErrorResult('Supabase auth is not configured.');
 	}
+
+	const metadata = profileMetadata && typeof profileMetadata === 'object' ? profileMetadata : undefined;
 
 	const { data, error } = await supabase.auth.signUp({
 		email,
 		password,
 		options: {
 			emailRedirectTo: `${window.location.origin}/login.html?next=/index.html`,
+			data: metadata,
 		},
 	});
 

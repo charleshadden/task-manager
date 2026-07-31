@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#4f46e5" />
-    <link rel="stylesheet" href="/styles.css?v=5" />
+    <link rel="stylesheet" href="/styles.css?v=7" />
     <title>Sign Up | Habit Check</title>
   </head>
   <body data-auth-mode="signup">
@@ -25,6 +25,198 @@
             <input id="passwordInput" type="password" autocomplete="new-password" minlength="6" required />
           </label>
 
+          <section class="assessment-panel" aria-labelledby="assessmentTitle">
+            <h2 id="assessmentTitle">Character Assessment</h2>
+            <p class="status-text">Answer these to set starting ability points and your archetype.</p>
+
+            <div class="assessment-grid">
+              <label class="auth-field">
+                <span>Workout days per week</span>
+                <input id="workoutDaysInput" type="number" min="0" max="7" step="1" value="0" required />
+                <small class="auth-help">Affects STR and CON (training consistency).</small>
+              </label>
+
+              <label class="auth-field">
+                <span>Workout style</span>
+                <select id="workoutStyleInput" required>
+                  <option value="strength">Strength focused</option>
+                  <option value="cardio">Cardio focused</option>
+                  <option value="mixed" selected>Mixed training</option>
+                  <option value="mobility">Mobility / recovery</option>
+                </select>
+                <small class="auth-help">Affects class bias through STR, DEX, and CON tendencies.</small>
+              </label>
+
+              <label class="auth-field">
+                <span>Minutes per workout</span>
+                <input id="workoutMinutesInput" type="number" min="0" max="240" step="5" value="30" required />
+                <small class="auth-help">Affects STR and CON workload capacity.</small>
+              </label>
+
+              <label class="auth-field">
+                <span>Years training consistently</span>
+                <input id="workoutYearsInput" type="number" min="0" max="50" step="0.5" value="0" required />
+                <small class="auth-help">Affects STR and CON baseline through long-term experience.</small>
+              </label>
+
+              <label class="auth-field">
+                <span>Average daily steps</span>
+                <input id="dailyStepsInput" type="number" min="0" max="50000" step="100" value="4000" required />
+                <small class="auth-help">Affects DEX and CON movement baseline.</small>
+              </label>
+
+              <label class="auth-field">
+                <span>Sleep quality</span>
+                <select id="sleepQualityInput" required>
+                  <option value="1">Poor</option>
+                  <option value="2">Fair</option>
+                  <option value="3" selected>Good</option>
+                  <option value="4">Great</option>
+                  <option value="5">Excellent</option>
+                </select>
+                <small class="auth-help">Affects CON and WIS recovery/readiness.</small>
+              </label>
+
+              <label class="auth-field">
+                <span>Reading / study days per week</span>
+                <input id="learningDaysInput" type="number" min="0" max="7" step="1" value="2" required />
+                <small class="auth-help">Affects INT and WIS consistency.</small>
+              </label>
+
+              <label class="auth-field">
+                <span>Average learning minutes per day</span>
+                <input id="learningMinutesInput" type="number" min="0" max="600" step="5" value="20" required />
+                <small class="auth-help">Affects INT depth and WIS discipline.</small>
+              </label>
+
+              <label class="auth-field">
+                <span>Journaling / reflection days per week</span>
+                <input id="reflectionDaysInput" type="number" min="0" max="7" step="1" value="1" required />
+                <small class="auth-help">Affects WIS (self-awareness) and supports CHA presence.</small>
+              </label>
+
+              <label class="auth-field">
+                <span>Social confidence</span>
+                <select id="socialConfidenceInput" required>
+                  <option value="1">Very low</option>
+                  <option value="2">Low</option>
+                  <option value="3" selected>Moderate</option>
+                  <option value="4">High</option>
+                  <option value="5">Very high</option>
+                </select>
+                <small class="auth-help">Affects CHA baseline.</small>
+              </label>
+
+              <label class="auth-field">
+                <span>Acts of service each week</span>
+                <input id="serviceActsInput" type="number" min="0" max="50" step="1" value="1" required />
+                <small class="auth-help">Affects CHA and WIS (empathy and leadership habits).</small>
+              </label>
+
+              <label class="auth-field">
+                <span>Daily focus blocks completed</span>
+                <input id="focusBlocksInput" type="number" min="0" max="20" step="1" value="1" required />
+                <small class="auth-help">Affects INT, DEX, and WIS consistency.</small>
+              </label>
+            </div>
+
+            <details class="assessment-advanced">
+              <summary>Advanced assessment (optional)</summary>
+              <div class="assessment-grid assessment-grid--advanced">
+                <label class="auth-field">
+                  <span>Any injury or mobility limits?</span>
+                  <select id="injuryLevelInput">
+                    <option value="">Prefer not to say</option>
+                    <option value="none">None</option>
+                    <option value="minor">Minor limitations</option>
+                    <option value="moderate">Moderate limitations</option>
+                    <option value="significant">Significant limitations</option>
+                  </select>
+                  <small class="auth-help">Affects STR, DEX, and CON (higher limitations reduce starting physical scores).</small>
+                </label>
+
+                <label class="auth-field">
+                  <span>Current fitness self-rating (1-10)</span>
+                  <input id="fitnessRatingInput" type="number" min="1" max="10" step="1" placeholder="5" />
+                  <small class="auth-help">Affects STR, DEX, and CON baseline.</small>
+                </label>
+
+                <label class="auth-field">
+                  <span>Rest days each week</span>
+                  <input id="restDaysInput" type="number" min="0" max="7" step="1" placeholder="2" />
+                  <small class="auth-help">Affects CON and WIS balance (recovery consistency).</small>
+                </label>
+
+                <label class="auth-field">
+                  <span>Weekday minutes available per day</span>
+                  <input id="weekdayMinutesInput" type="number" min="0" max="600" step="5" placeholder="45" />
+                  <small class="auth-help">Affects STR and INT potential (consistent time budget).</small>
+                </label>
+
+                <label class="auth-field">
+                  <span>Weekend minutes available per day</span>
+                  <input id="weekendMinutesInput" type="number" min="0" max="900" step="5" placeholder="75" />
+                  <small class="auth-help">Affects STR and INT potential (overall weekly training/study capacity).</small>
+                </label>
+
+                <label class="auth-field">
+                  <span>Main 90-day goal</span>
+                  <select id="primaryGoalInput">
+                    <option value="">Balanced</option>
+                    <option value="strength">Strength</option>
+                    <option value="endurance">Endurance</option>
+                    <option value="fatloss">Fat loss</option>
+                    <option value="learning">Learning / study</option>
+                    <option value="social">Social confidence</option>
+                    <option value="consistency">Habit consistency</option>
+                  </select>
+                  <small class="auth-help">Biases your build toward matching attributes for your current goal.</small>
+                </label>
+
+                <label class="auth-field">
+                  <span>Nutrition plan days per week</span>
+                  <input id="nutritionDaysInput" type="number" min="0" max="7" step="1" placeholder="4" />
+                  <small class="auth-help">Affects CON and WIS (discipline and recovery quality).</small>
+                </label>
+
+                <label class="auth-field">
+                  <span>Average weekly stress (1-5)</span>
+                  <input id="stressLevelInput" type="number" min="1" max="5" step="1" placeholder="3" />
+                  <small class="auth-help">Affects CON, WIS, and INT (higher stress can reduce starting scores).</small>
+                </label>
+
+                <label class="auth-field">
+                  <span>Months of habit consistency</span>
+                  <input id="consistencyMonthsInput" type="number" min="0" max="240" step="1" placeholder="6" />
+                  <small class="auth-help">Affects CON, WIS, and INT baseline through long-term adherence.</small>
+                </label>
+
+                <label class="auth-field">
+                  <span>Hydration baseline (cups/day)</span>
+                  <input id="hydrationBaselineInput" type="number" min="0" max="30" step="1" placeholder="6" />
+                  <small class="auth-help">Affects CON and WIS recovery/readiness.</small>
+                </label>
+
+                <label class="auth-field">
+                  <span>Outdoor activity days per week</span>
+                  <input id="outdoorDaysInput" type="number" min="0" max="7" step="1" placeholder="3" />
+                  <small class="auth-help">Affects DEX and CON baseline.</small>
+                </label>
+
+                <label class="auth-field">
+                  <span>New social interactions per week</span>
+                  <input id="socialExposureInput" type="number" min="0" max="50" step="1" placeholder="2" />
+                  <small class="auth-help">Affects CHA growth potential.</small>
+                </label>
+              </div>
+            </details>
+
+            <div class="assessment-result">
+              <p id="assessmentArchetype" class="status-text">Class: Fighter • Archetype: Champion</p>
+              <p id="assessmentPreview" class="status-text">Starting points - STR 1, DEX 1, WIS 1, INT 1, CHA 1, CON 1</p>
+            </div>
+          </section>
+
           <button id="submitButton" type="submit">Create account</button>
         </form>
 
@@ -33,7 +225,7 @@
       </section>
     </main>
 
-    <script type="module" src="/scripts/setup-supabase.js?v=3"></script>
-    <script type="module" src="/scripts/auth.js?v=3"></script>
+    <script type="module" src="/scripts/setup-supabase.js?v=4"></script>
+    <script type="module" src="/scripts/auth.js?v=6"></script>
   </body>
 </html>
