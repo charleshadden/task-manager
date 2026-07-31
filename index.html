@@ -80,6 +80,7 @@
           <button id="notificationsButton" type="button">Enable reminders</button>
           <p id="reminderStatus" class="status-text">Reminders are off.</p>
         </div>
+        <p id="syncStatus" class="status-text">Checking Supabase sync.</p>
         <div class="daily-meta-card">
           <div class="daily-meta-row">
             <label class="daily-meta-label" for="moodSelect">Mood</label>
@@ -114,6 +115,7 @@
       <div id="checklistSections" class="checklist-sections"></div>
     </main>
 
-    <script src="/app.js?v=4"></script>
+    <script type="module" src="/scripts/setup-supabase.js"></script>
+    <script type="module" src="/app.js?v=4"></script>
   </body>
 </html>

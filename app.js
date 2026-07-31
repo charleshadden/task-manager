@@ -1,6 +1,8 @@
 const STORAGE_KEY = 'habit-checklist-v1';
+const THEME_STORAGE_KEY = 'habit-checklist-theme';
 const REMINDER_HOUR = 21;
 const REMINDER_MINUTE = 0;
+const SYNC_DEBOUNCE_MS = 400;
 const PRIORITY_OPTIONS = ['low', 'medium', 'high'];
 const ATTRIBUTE_OPTIONS = ['None', 'Strength', 'Dexterity', 'Wisdom', 'Intelligence', 'Charisma', 'Constitution'];
 const XP_PER_LEVEL = 10000;
@@ -39,9 +41,20 @@ const defaultChecklistSections = {
   fiveYear: [],
 };
 
-let state = loadState();
+let syncStatusMessage = 'Supabase sync is not configured.';
+let lastSyncedUpdatedAt = '';
+let syncSaveTimer = null;
+let state = loadLocalState();
 let reminderTimer = null;
 let midnightTimer = null;
+
+function persistLocalState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function updateStateTimestamp() {
+  state.updatedAt = new Date().toISOString();
+}
 
 function ensureStateShape() {
   state.unconditionals = Array.isArray(state.unconditionals) && state.unconditionals.length > 0
@@ -67,7 +80,8 @@ function ensureStateShape() {
   state.mood = state.mood || '';
   state.weightLog = Array.isArray(state.weightLog) ? state.weightLog : [];
   state.currentWeight = state.currentWeight || '';
-  saveState();
+  state.updatedAt = state.updatedAt || new Date().toISOString();
+  persistLocalState();
 }
 
 ensureStateShape();
@@ -84,10 +98,111 @@ const heroLevelEl = document.getElementById('heroLevel');
 const resetButton = document.getElementById('resetButton');
 const notificationsButton = document.getElementById('notificationsButton');
 const reminderStatusEl = document.getElementById('reminderStatus');
+const syncStatusEl = document.getElementById('syncStatus');
 const checklistSections = document.getElementById('checklistSections');
 const moodSelect = document.getElementById('moodSelect');
 const weightInput = document.getElementById('weightInput');
 const weightSaveButton = document.getElementById('weightSaveButton');
+
+function getSyncAdapter() {
+  return window.supabaseSync || null;
+}
+
+function setSyncStatus(message) {
+  syncStatusMessage = message;
+  if (syncStatusEl) {
+    syncStatusEl.textContent = message;
+  }
+}
+
+function getComparableTimestamp(value) {
+  const parsed = Date.parse(value || '');
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatSyncTime(value) {
+  if (!value) return 'just now';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return 'just now';
+  return parsed.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+async function persistStateToSupabase(force = false) {
+  const syncAdapter = getSyncAdapter();
+  if (!syncAdapter?.enabled) {
+    setSyncStatus('Supabase sync is off.');
+    return false;
+  }
+
+  if (!force && state.updatedAt && state.updatedAt === lastSyncedUpdatedAt) {
+    setSyncStatus(`Supabase synced at ${formatSyncTime(lastSyncedUpdatedAt)}.`);
+    return true;
+  }
+
+  setSyncStatus('Syncing to Supabase...');
+  const result = await syncAdapter.saveState(state);
+
+  if (!result.ok) {
+    setSyncStatus(result.message);
+    return false;
+  }
+
+  lastSyncedUpdatedAt = result.updatedAt || state.updatedAt || '';
+  setSyncStatus(`Supabase synced at ${formatSyncTime(lastSyncedUpdatedAt)}.`);
+  return true;
+}
+
+function queueSupabaseSave() {
+  const syncAdapter = getSyncAdapter();
+  if (!syncAdapter?.enabled) return;
+
+  clearTimeout(syncSaveTimer);
+  syncSaveTimer = window.setTimeout(() => {
+    persistStateToSupabase();
+  }, SYNC_DEBOUNCE_MS);
+}
+
+async function hydrateStateFromSupabase() {
+  const syncAdapter = getSyncAdapter();
+  if (!syncAdapter?.enabled) {
+    setSyncStatus('Supabase sync is off.');
+    return;
+  }
+
+  setSyncStatus('Checking Supabase...');
+  const result = await syncAdapter.loadState();
+  if (!result.ok) {
+    setSyncStatus(result.message);
+    return;
+  }
+
+  if (!result.state) {
+    setSyncStatus('Connected to Supabase. Saving this device state...');
+    await persistStateToSupabase(true);
+    return;
+  }
+
+  const localUpdatedAt = getComparableTimestamp(state.updatedAt);
+  const remoteUpdatedAt = getComparableTimestamp(result.state.updatedAt || result.updatedAt);
+
+  if (remoteUpdatedAt > localUpdatedAt) {
+    state = result.state;
+    ensureStateShape();
+    lastSyncedUpdatedAt = result.updatedAt || result.state.updatedAt || '';
+    render();
+    setSyncStatus(`Loaded Supabase data from ${formatSyncTime(lastSyncedUpdatedAt)}.`);
+    return;
+  }
+
+  if (localUpdatedAt > remoteUpdatedAt) {
+    setSyncStatus('Connected to Supabase. Uploading newer local changes...');
+    await persistStateToSupabase(true);
+    return;
+  }
+
+  lastSyncedUpdatedAt = result.updatedAt || result.state.updatedAt || state.updatedAt || '';
+  setSyncStatus(`Supabase synced at ${formatSyncTime(lastSyncedUpdatedAt)}.`);
+}
 
 function normalizePriority(priority) {
   return PRIORITY_OPTIONS.includes(priority) ? priority : 'medium';
@@ -176,7 +291,7 @@ function normalizeTask(task) {
   };
 }
 
-function loadState() {
+function loadLocalState() {
   try {
     const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (!parsed) {
@@ -193,6 +308,7 @@ function loadState() {
           yearly: [],
           fiveYear: [],
         },
+        updatedAt: new Date().toISOString(),
       };
     }
 
@@ -219,6 +335,7 @@ function loadState() {
       mood: parsed.mood || '',
       weightLog: Array.isArray(parsed.weightLog) ? parsed.weightLog : [],
       currentWeight: parsed.currentWeight || '',
+      updatedAt: parsed.updatedAt || new Date().toISOString(),
     };
   } catch {
     return {
@@ -238,12 +355,15 @@ function loadState() {
       mood: '',
       weightLog: [],
       currentWeight: '',
+      updatedAt: new Date().toISOString(),
     };
   }
 }
 
 function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  updateStateTimestamp();
+  persistLocalState();
+  queueSupabaseSave();
 }
 
 function getTodayKey() {
@@ -837,11 +957,11 @@ themeButtons.forEach((button) => {
     const nextTheme = button.dataset.theme;
     document.body.dataset.theme = nextTheme;
     themeButtons.forEach((option) => option.classList.toggle('active', option === button));
-    localStorage.setItem('habit-checklist-theme', nextTheme);
+    localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
   });
 });
 
-const savedTheme = localStorage.getItem('habit-checklist-theme') || 'fantasy';
+const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || 'fantasy';
 document.body.dataset.theme = savedTheme;
 themeButtons.forEach((button) => button.classList.toggle('active', button.dataset.theme === savedTheme));
 
@@ -891,6 +1011,10 @@ function render() {
     reminderStatusEl.textContent = 'Notifications are not supported here.';
     notificationsButton.textContent = 'Enable reminders';
     notificationsButton.disabled = true;
+  }
+
+  if (syncStatusEl) {
+    syncStatusEl.textContent = syncStatusMessage;
   }
 
   updateDailyMeta();
@@ -946,5 +1070,10 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/service-worker.js').catch(() => {});
 }
 
+window.addEventListener('online', () => {
+  persistStateToSupabase(true);
+});
+
 scheduleReminders();
 render();
+hydrateStateFromSupabase();
