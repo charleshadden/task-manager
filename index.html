@@ -15,7 +15,12 @@
     <title>Habit Check</title>
   </head>
   <body>
-    <main class="app-shell">
+    <div id="appBootStatus" class="auth-gate">Checking your account...</div>
+    <main class="app-shell" id="appShell" hidden>
+      <div class="account-bar">
+        <p id="accountEmail" class="status-text">Checking account...</p>
+        <button id="logoutButton" type="button" class="secondary-button">Log out</button>
+      </div>
       <div class="theme-switcher" role="group" aria-label="Theme selector">
         <button type="button" class="theme-option active" data-theme="fantasy">Fantasy</button>
         <button type="button" class="theme-option" data-theme="girly-rpg">Girly RPG</button>

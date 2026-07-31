@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#4f46e5" />
+    <link rel="stylesheet" href="/styles.css?v=5" />
+    <title>Log In | Habit Check</title>
+  </head>
+  <body data-auth-mode="login">
+    <main class="auth-shell">
+      <section class="auth-card">
+        <p class="eyebrow">Guild Access</p>
+        <h1>Log in</h1>
+        <p class="subtitle">Pick up your quests, streaks, and saved progress on any device.</p>
+
+        <form id="authForm" class="auth-form">
+          <label class="auth-field">
+            <span>Email</span>
+            <input id="emailInput" type="email" autocomplete="email" required />
+          </label>
+
+          <label class="auth-field">
+            <span>Password</span>
+            <input id="passwordInput" type="password" autocomplete="current-password" minlength="6" required />
+          </label>
+
+          <button id="submitButton" type="submit">Log in</button>
+        </form>
+
+        <p id="authStatus" class="status-text">Checking session...</p>
+        <p class="auth-switch">New here? <a href="/signup.html">Create an account</a></p>
+      </section>
+    </main>
+
+    <script type="module" src="/scripts/setup-supabase.js"></script>
+    <script type="module" src="/scripts/auth.js"></script>
+  </body>
+</html>

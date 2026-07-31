@@ -1,34 +1,11 @@
-// This script is a helper for local development only.
-// It uses the Supabase JS client to authenticate and fetch initial user data.
-
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../supabaseConfig.js';
 
 const SUPABASE_TABLE = 'habit_states';
-const DEVICE_ID_KEY = 'habit-check-device-id';
 const LOCAL_STATE_KEY = 'habit-checklist-v1';
 
 function normalizeSupabaseUrl(url) {
 	return String(url || '').replace(/\/rest\/v1\/?$/, '');
-}
-
-function createDeviceId() {
-	if (window.crypto?.randomUUID) {
-		return window.crypto.randomUUID();
-	}
-
-	return `device-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`;
-}
-
-function getDeviceId() {
-	const existingId = localStorage.getItem(DEVICE_ID_KEY);
-	if (existingId) {
-		return existingId;
-	}
-
-	const nextId = createDeviceId();
-	localStorage.setItem(DEVICE_ID_KEY, nextId);
-	return nextId;
 }
 
 function describeError(prefix, error) {
@@ -58,15 +35,156 @@ function describeError(prefix, error) {
 const normalizedUrl = normalizeSupabaseUrl(SUPABASE_URL);
 const supabase = normalizedUrl && SUPABASE_ANON_KEY ? createClient(normalizedUrl, SUPABASE_ANON_KEY) : null;
 
-async function logConnectionTest() {
+function getLocalStateStorageKey(userId) {
+	return userId ? `${LOCAL_STATE_KEY}:${userId}` : LOCAL_STATE_KEY;
+}
+
+function createErrorResult(message) {
+	return { ok: false, message };
+}
+
+async function getSession() {
 	if (!supabase) {
-		console.warn('[Supabase] Connection test skipped: client is not configured.');
-		return { ok: false, message: 'Supabase client is not configured.' };
+		return createErrorResult('Supabase auth is not configured.');
+	}
+
+	const { data, error } = await supabase.auth.getSession();
+	if (error) {
+		return createErrorResult(`Could not read your auth session. ${error.message}`);
+	}
+
+	return {
+		ok: true,
+		session: data.session,
+	};
+}
+
+async function getCurrentUser() {
+	const sessionResult = await getSession();
+	if (!sessionResult.ok) {
+		return {
+			ok: false,
+			message: sessionResult.message,
+			user: null,
+		};
+	}
+
+	return {
+		ok: true,
+		message: sessionResult.session?.user ? 'Authenticated user loaded.' : 'No active user session.',
+		user: sessionResult.session?.user || null,
+	};
+}
+
+function onAuthStateChange(callback) {
+	if (!supabase) {
+		return { data: { subscription: { unsubscribe() {} } } };
+	}
+
+	return supabase.auth.onAuthStateChange((_event, session) => {
+		callback(session);
+	});
+}
+
+async function signUp(email, password) {
+	if (!supabase) {
+		return createErrorResult('Supabase auth is not configured.');
+	}
+
+	const { data, error } = await supabase.auth.signUp({
+		email,
+		password,
+	});
+
+	if (error) {
+		return createErrorResult(`Could not sign up. ${error.message}`);
+	}
+
+	return {
+		ok: true,
+		message: data.session ? 'Signed up successfully.' : 'Account created. Confirmation may be required.',
+		session: data.session || null,
+		user: data.user || null,
+	};
+}
+
+async function signIn(email, password) {
+	if (!supabase) {
+		return createErrorResult('Supabase auth is not configured.');
+	}
+
+	const { data, error } = await supabase.auth.signInWithPassword({
+		email,
+		password,
+	});
+
+	if (error) {
+		return createErrorResult(`Could not log in. ${error.message}`);
+	}
+
+	return {
+		ok: true,
+		message: 'Logged in successfully.',
+		session: data.session,
+		user: data.user,
+	};
+}
+
+async function signOut() {
+	if (!supabase) {
+		return createErrorResult('Supabase auth is not configured.');
+	}
+
+	const { error } = await supabase.auth.signOut();
+	if (error) {
+		return createErrorResult(`Could not log out. ${error.message}`);
+	}
+
+	return {
+		ok: true,
+		message: 'Logged out successfully.',
+	};
+}
+
+async function getStateOwner() {
+	const userResult = await getCurrentUser();
+	if (!userResult.ok) {
+		return {
+			ok: false,
+			message: userResult.message,
+			user: null,
+			ownerKey: null,
+		};
+	}
+
+	if (!userResult.user) {
+		return {
+			ok: false,
+			message: 'You need to log in before syncing checklist data.',
+			user: null,
+			ownerKey: null,
+		};
+	}
+
+	return {
+		ok: true,
+		message: 'Authenticated sync owner loaded.',
+		user: userResult.user,
+		ownerKey: userResult.user.id,
+	};
+}
+
+async function logConnectionTest() {
+	const ownerResult = await getStateOwner();
+	if (!ownerResult.ok) {
+		console.warn('[Supabase] Connection test skipped:', ownerResult.message);
+		return { ok: false, message: ownerResult.message };
 	}
 
 	const { count, error } = await supabase
 		.from(SUPABASE_TABLE)
-		.select('device_id', { count: 'exact', head: true });
+		.select('device_id', { count: 'exact', head: true })
+		.eq('device_id', ownerResult.ownerKey);
 
 	if (error) {
 		const message = describeError('Could not reach the Supabase database', error);
@@ -74,14 +192,14 @@ async function logConnectionTest() {
 		return { ok: false, message };
 	}
 
-	const message = `Connected to Supabase table ${SUPABASE_TABLE}. Visible rows: ${count ?? 0}.`;
+	const message = `Connected to Supabase table ${SUPABASE_TABLE} for user ${ownerResult.user.email || ownerResult.ownerKey}. Visible rows: ${count ?? 0}.`;
 	console.info('[Supabase] Connection test passed:', message);
 	return { ok: true, message, count: count ?? 0 };
 }
 
-function readLocalStateSnapshot() {
+function readLocalStateSnapshot(userId) {
 	try {
-		const rawState = localStorage.getItem(LOCAL_STATE_KEY);
+		const rawState = localStorage.getItem(getLocalStateStorageKey(userId)) || localStorage.getItem(LOCAL_STATE_KEY);
 		if (!rawState) {
 			return {
 				lastSeenDate: new Date().toISOString().slice(0, 10),
@@ -103,12 +221,18 @@ function readLocalStateSnapshot() {
 }
 
 async function logReadWriteTest() {
+	const ownerResult = await getStateOwner();
+	if (!ownerResult.ok) {
+		console.warn('[Supabase] Write test skipped:', ownerResult.message);
+		return { ok: false, message: ownerResult.message, updatedAt: null };
+	}
+
 	const connectionResult = await logConnectionTest();
 	if (!connectionResult.ok) {
 		return connectionResult;
 	}
 
-	const localState = readLocalStateSnapshot();
+	const localState = readLocalStateSnapshot(ownerResult.ownerKey);
 	const saveResult = await saveState(localState);
 
 	if (!saveResult.ok) {
@@ -116,7 +240,7 @@ async function logReadWriteTest() {
 		return saveResult;
 	}
 
-	const message = `Read/write test passed for ${SUPABASE_TABLE}. Device ${getDeviceId()} synced at ${saveResult.updatedAt || localState.updatedAt}.`;
+	const message = `Read/write test passed for ${SUPABASE_TABLE}. User ${ownerResult.user.email || ownerResult.ownerKey} synced at ${saveResult.updatedAt || localState.updatedAt}.`;
 	console.info('[Supabase] Write test passed:', message);
 	return {
 		ok: true,
@@ -126,10 +250,11 @@ async function logReadWriteTest() {
 }
 
 async function loadState() {
-	if (!supabase) {
+	const ownerResult = await getStateOwner();
+	if (!ownerResult.ok) {
 		return {
 			ok: false,
-			message: 'Supabase sync is not configured.',
+			message: ownerResult.message,
 			state: null,
 			updatedAt: null,
 		};
@@ -138,7 +263,7 @@ async function loadState() {
 	const { data, error } = await supabase
 		.from(SUPABASE_TABLE)
 		.select('state, updated_at')
-		.eq('device_id', getDeviceId())
+		.eq('device_id', ownerResult.ownerKey)
 		.maybeSingle();
 
 	if (error) {
@@ -159,16 +284,17 @@ async function loadState() {
 }
 
 async function saveState(state) {
-	if (!supabase) {
+	const ownerResult = await getStateOwner();
+	if (!ownerResult.ok) {
 		return {
 			ok: false,
-			message: 'Supabase sync is not configured.',
+			message: ownerResult.message,
 			updatedAt: null,
 		};
 	}
 
 	const payload = {
-		device_id: getDeviceId(),
+		device_id: ownerResult.ownerKey,
 		state,
 		updated_at: state?.updatedAt || new Date().toISOString(),
 	};
@@ -198,11 +324,14 @@ window.supabase = supabase;
 window.supabaseSync = {
 	enabled: Boolean(supabase),
 	table: SUPABASE_TABLE,
-	getDeviceId,
+	getSession,
+	getCurrentUser,
+	onAuthStateChange,
+	signUp,
+	signIn,
+	signOut,
 	logConnectionTest,
 	logReadWriteTest,
 	loadState,
 	saveState,
 };
-
-logReadWriteTest();

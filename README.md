@@ -8,7 +8,9 @@ This app loads Supabase settings from `supabaseConfig.js`.
 
 For a static deployment such as Vercel, `supabaseConfig.js` must be included in the repo so the browser can load your public Supabase URL and anon key at runtime. The setup script will normalize a pasted REST URL such as `https://your-project.supabase.co/rest/v1/` to the project URL expected by the Supabase client.
 
-To actually sync checklist data, create this table in the Supabase SQL editor:
+Enable the Email provider in Supabase Auth so members can create accounts with email and password.
+
+To store each member's checklist separately, use this table and row-level security in the Supabase SQL editor:
 
 ```sql
 create table if not exists public.habit_states (
@@ -19,14 +21,32 @@ create table if not exists public.habit_states (
 
 alter table public.habit_states enable row level security;
 
-create policy "habit_check_anon_rw"
+drop policy if exists "habit_check_anon_rw" on public.habit_states;
+drop policy if exists "habit_check_users_select_own" on public.habit_states;
+drop policy if exists "habit_check_users_insert_own" on public.habit_states;
+drop policy if exists "habit_check_users_update_own" on public.habit_states;
+
+create policy "habit_check_users_select_own"
 on public.habit_states
-for all
-using (true)
-with check (true);
+for select
+to authenticated
+using (auth.uid()::text = device_id);
+
+create policy "habit_check_users_insert_own"
+on public.habit_states
+for insert
+to authenticated
+with check (auth.uid()::text = device_id);
+
+create policy "habit_check_users_update_own"
+on public.habit_states
+for update
+to authenticated
+using (auth.uid()::text = device_id)
+with check (auth.uid()::text = device_id);
 ```
 
-This policy is intentionally simple so a personal app can start syncing immediately with the anonymous key. If you want stronger privacy, add Supabase Auth and replace that policy with user-scoped rules.
+This setup keeps one saved row per signed-in user. The app writes the authenticated user's Supabase auth ID into `device_id`, so each member gets isolated state without sharing a local device key.
 
 ## Run locally
 
