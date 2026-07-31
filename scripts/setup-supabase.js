@@ -86,6 +86,51 @@ function onAuthStateChange(callback) {
 	});
 }
 
+async function verifyOtpFromUrl() {
+	if (!supabase) {
+		return createErrorResult('Supabase auth is not configured.');
+	}
+
+	const params = new URLSearchParams(window.location.search);
+	const tokenHash = params.get('token_hash');
+	const type = params.get('type');
+
+	if (!tokenHash || !type) {
+		return {
+			ok: true,
+			message: 'No auth callback token found.',
+			session: null,
+		};
+	}
+
+	const { data, error } = await supabase.auth.verifyOtp({
+		token_hash: tokenHash,
+		type,
+	});
+
+	if (error) {
+		return createErrorResult(`Could not verify your email link. ${error.message}`);
+	}
+
+	return {
+		ok: true,
+		message: 'Email verified successfully.',
+		session: data.session || null,
+		user: data.user || null,
+	};
+}
+
+function clearAuthParamsFromUrl() {
+	const url = new URL(window.location.href);
+	url.searchParams.delete('token_hash');
+	url.searchParams.delete('type');
+	url.searchParams.delete('code');
+	url.searchParams.delete('error');
+	url.searchParams.delete('error_code');
+	url.searchParams.delete('error_description');
+	window.history.replaceState({}, document.title, `${url.pathname}${url.search}${url.hash}`);
+}
+
 async function signUp(email, password) {
 	if (!supabase) {
 		return createErrorResult('Supabase auth is not configured.');
@@ -94,6 +139,9 @@ async function signUp(email, password) {
 	const { data, error } = await supabase.auth.signUp({
 		email,
 		password,
+		options: {
+			emailRedirectTo: `${window.location.origin}/login.html?next=/index.html`,
+		},
 	});
 
 	if (error) {
@@ -327,6 +375,8 @@ window.supabaseSync = {
 	getSession,
 	getCurrentUser,
 	onAuthStateChange,
+	verifyOtpFromUrl,
+	clearAuthParamsFromUrl,
 	signUp,
 	signIn,
 	signOut,

@@ -10,6 +10,12 @@ For a static deployment such as Vercel, `supabaseConfig.js` must be included in 
 
 Enable the Email provider in Supabase Auth so members can create accounts with email and password.
 
+In Supabase Auth URL settings, set your Site URL to your deployed app URL and add both your local and deployed auth pages to the Redirect URLs list, for example:
+
+- `http://127.0.0.1:8001/login.html`
+- `http://localhost:8000/login.html`
+- `https://your-vercel-domain.vercel.app/login.html`
+
 To store each member's checklist separately, use this table and row-level security in the Supabase SQL editor:
 
 ```sql
