@@ -154,10 +154,12 @@ function setBootStatus(message) {
 function showAppShell() {
   if (appBootStatusEl) {
     appBootStatusEl.hidden = true;
+    appBootStatusEl.style.display = 'none';
   }
 
   if (appShell) {
     appShell.hidden = false;
+    appShell.style.display = '';
   }
 }
 
