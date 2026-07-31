@@ -40,6 +40,19 @@ async function initializeAuthPage() {
     return;
   }
 
+  const verifyResult = await authAdapter.verifyOtpFromUrl();
+  if (!verifyResult.ok) {
+    setStatus(verifyResult.message);
+    return;
+  }
+
+  if (verifyResult.session?.user) {
+    authAdapter.clearAuthParamsFromUrl();
+    setStatus('Email verified. Redirecting...');
+    redirectToApp();
+    return;
+  }
+
   const sessionResult = await authAdapter.getSession();
   if (!sessionResult.ok) {
     setStatus(sessionResult.message);
@@ -47,6 +60,7 @@ async function initializeAuthPage() {
   }
 
   if (sessionResult.session?.user) {
+    authAdapter.clearAuthParamsFromUrl();
     redirectToApp();
     return;
   }
@@ -88,7 +102,7 @@ authForm?.addEventListener('submit', async (event) => {
   }
 
   if (mode === 'signup' && !result.session) {
-    setStatus('Account created. Check your email for the confirmation link, then log in.');
+    setStatus('Account created. Check your email for the confirmation link. It will return here after verification.');
     authForm.reset();
     return;
   }
