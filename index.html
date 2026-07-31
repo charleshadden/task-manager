@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Habit Check" />
+    <meta name="theme-color" content="#4f46e5" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="stylesheet" href="/styles.css?v=5" />
+    <title>Habit Check</title>
+  </head>
+  <body>
+    <main class="app-shell">
+      <div class="theme-switcher" role="group" aria-label="Theme selector">
+        <button type="button" class="theme-option active" data-theme="fantasy">Fantasy</button>
+        <button type="button" class="theme-option" data-theme="girly-rpg">Girly RPG</button>
+      </div>
+
+      <header class="hero character-hero">
+        <div class="hero-intro">
+          <p class="eyebrow">Adventurer's log</p>
+          <h1>Character Sheet</h1>
+          <p class="subtitle">A daily quest tracker for your habits, stats, and growth.</p>
+        </div>
+        <div class="hero-stats">
+          <div class="hero-stat">
+            <span class="hero-stat-label">Class</span>
+            <span class="hero-stat-value">Questkeeper</span>
+          </div>
+          <div class="hero-stat">
+            <span class="hero-stat-label">Race</span>
+            <span class="hero-stat-value">Human</span>
+          </div>
+          <div class="hero-stat">
+            <span class="hero-stat-label">Level</span>
+            <span class="hero-stat-value" id="heroLevel">0</span>
+          </div>
+        </div>
+      </header>
+
+      <section class="summary-card character-stats">
+        <div class="metric">
+          <span class="value" id="completedCount">0</span>
+          <span class="label">done</span>
+        </div>
+        <div class="metric">
+          <span class="value" id="progressPercent">0%</span>
+          <span class="label">complete</span>
+        </div>
+        <div class="metric">
+          <span class="value" id="streakCount">0</span>
+          <span class="label">streak</span>
+        </div>
+        <div class="metric">
+          <span class="value" id="xpCount">0</span>
+          <span class="label">xp</span>
+        </div>
+        <div class="metric">
+          <span class="value" id="levelCount">0</span>
+          <span class="label">level</span>
+        </div>
+      </section>
+
+      <section class="card">
+        <div id="attributeSummary" class="attribute-summary"></div>
+      </section>
+
+      <section class="card">
+        <div class="card-header">
+          <h2>Daily Quests</h2>
+          <button id="resetButton" type="button">Reset today</button>
+        </div>
+        <p id="todayStatus" class="status-text">Start your first win.</p>
+        <div class="reminder-controls">
+          <button id="notificationsButton" type="button">Enable reminders</button>
+          <p id="reminderStatus" class="status-text">Reminders are off.</p>
+        </div>
+        <div class="daily-meta-card">
+          <div class="daily-meta-row">
+            <label class="daily-meta-label" for="moodSelect">Mood</label>
+            <select id="moodSelect" class="daily-meta-input">
+              <option value="">Pick today&apos;s mood</option>
+              <option value="😄">😄 Happy</option>
+              <option value="😌">😌 Calm</option>
+              <option value="😐">😐 Neutral</option>
+              <option value="😔">😔 Low</option>
+              <option value="😤">😤 Stressed</option>
+            </select>
+          </div>
+          <div class="daily-meta-row">
+            <label class="daily-meta-label" for="weightInput">Weight</label>
+            <div class="daily-meta-inline">
+              <input id="weightInput" class="daily-meta-input" type="number" step="0.1" inputmode="decimal" placeholder="e.g. 165.4" />
+              <button id="weightSaveButton" type="button">Save</button>
+            </div>
+          </div>
+        </div>
+        <ul id="taskList" class="task-list"></ul>
+      </section>
+
+      <section class="card">
+        <div class="card-header">
+          <h2>Adventure Goals</h2>
+        </div>
+        <p class="status-text">Complete these when you do them and earn XP based on effort.</p>
+        <ul id="conditionalList" class="task-list"></ul>
+      </section>
+
+      <div id="checklistSections" class="checklist-sections"></div>
+    </main>
+
+    <script src="/app.js?v=4"></script>
+  </body>
+</html>

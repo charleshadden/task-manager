@@ -1,0 +1,9 @@
+{
+  "name": "Habit Check",
+  "short_name": "Habit Check",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f7ff",
+  "theme_color": "#4f46e5",
+  "description": "A simple daily checklist and streak tracker for your habits."
+}
