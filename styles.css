@@ -465,6 +465,11 @@ button:hover {
   text-transform: uppercase;
 }
 
+.auth-gate[hidden],
+.app-shell[hidden] {
+  display: none !important;
+}
+
 .account-bar {
   display: flex;
   justify-content: space-between;
