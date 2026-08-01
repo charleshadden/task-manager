@@ -25,6 +25,10 @@ const summaryAdventureCompletions = document.getElementById('summaryAdventureCom
 const summaryAverageMood = document.getElementById('summaryAverageMood');
 const summaryAverageSteps = document.getElementById('summaryAverageSteps');
 const summaryAverageWeight = document.getElementById('summaryAverageWeight');
+const summaryAverageCalories = document.getElementById('summaryAverageCalories');
+const summaryAverageProtein = document.getElementById('summaryAverageProtein');
+const summaryAverageCarbs = document.getElementById('summaryAverageCarbs');
+const summaryAverageFat = document.getElementById('summaryAverageFat');
 const summaryProgressText = document.getElementById('summaryProgressText');
 const summaryAttributes = document.getElementById('summaryAttributes');
 const summaryAdventures = document.getElementById('summaryAdventures');
@@ -365,6 +369,25 @@ function renderSummary(state, user) {
     ? weightValues.reduce((sum, value) => sum + value, 0) / weightValues.length
     : 0;
 
+  const macroLog = Array.isArray(safeState.macroLog) ? safeState.macroLog : [];
+  const caloriesValues = macroLog.map((entry) => safeNumber(entry?.calories)).filter((value) => value > 0);
+  const proteinValues = macroLog.map((entry) => safeNumber(entry?.protein)).filter((value) => value > 0);
+  const carbsValues = macroLog.map((entry) => safeNumber(entry?.carbs)).filter((value) => value > 0);
+  const fatValues = macroLog.map((entry) => safeNumber(entry?.fat)).filter((value) => value > 0);
+
+  const averageCalories = caloriesValues.length > 0
+    ? Math.round(caloriesValues.reduce((sum, value) => sum + value, 0) / caloriesValues.length)
+    : 0;
+  const averageProtein = proteinValues.length > 0
+    ? Math.round(proteinValues.reduce((sum, value) => sum + value, 0) / proteinValues.length)
+    : 0;
+  const averageCarbs = carbsValues.length > 0
+    ? Math.round(carbsValues.reduce((sum, value) => sum + value, 0) / carbsValues.length)
+    : 0;
+  const averageFat = fatValues.length > 0
+    ? Math.round(fatValues.reduce((sum, value) => sum + value, 0) / fatValues.length)
+    : 0;
+
   if (summaryAccountEmail) {
     summaryAccountEmail.textContent = user?.email ? `Signed in as ${user.email}` : 'Signed in';
   }
@@ -391,6 +414,18 @@ function renderSummary(state, user) {
   }
   if (summaryAverageWeight) {
     summaryAverageWeight.textContent = weightValues.length > 0 ? averageWeight.toFixed(1) : '-';
+  }
+  if (summaryAverageCalories) {
+    summaryAverageCalories.textContent = caloriesValues.length > 0 ? formatNumber(averageCalories) : '-';
+  }
+  if (summaryAverageProtein) {
+    summaryAverageProtein.textContent = proteinValues.length > 0 ? `${formatNumber(averageProtein)}g` : '-';
+  }
+  if (summaryAverageCarbs) {
+    summaryAverageCarbs.textContent = carbsValues.length > 0 ? `${formatNumber(averageCarbs)}g` : '-';
+  }
+  if (summaryAverageFat) {
+    summaryAverageFat.textContent = fatValues.length > 0 ? `${formatNumber(averageFat)}g` : '-';
   }
 
   if (summaryProgressText) {

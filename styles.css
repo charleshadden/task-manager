@@ -335,6 +335,53 @@ button:hover {
   justify-content: flex-end;
 }
 
+.daily-meta-macro-row {
+  align-items: flex-start;
+}
+
+.macro-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  flex: 1;
+}
+
+.macro-grid button {
+  grid-column: 1 / -1;
+}
+
+.fatsecret-row {
+  align-items: flex-start;
+}
+
+.fatsecret-inline {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  flex: 1;
+}
+
+.fatsecret-result-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid rgba(135, 91, 44, 0.2);
+  border-radius: 12px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.fatsecret-result-title {
+  font-weight: 700;
+  color: #4b2d1c;
+}
+
+.fatsecret-result-detail {
+  font-size: 0.82rem;
+  color: #7b5433;
+}
+
 .mood-picker {
   display: inline-flex;
   gap: 8px;
@@ -882,6 +929,14 @@ button:hover {
 
   .daily-meta-inline {
     justify-content: stretch;
+  }
+
+  .macro-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fatsecret-inline {
+    grid-template-columns: 1fr;
   }
 
   .priority-control {

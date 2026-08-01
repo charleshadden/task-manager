@@ -279,3 +279,50 @@ python3 -m http.server 8000
 ```
 
 Then open http://localhost:8000 in your browser.
+
+## FatSecret integration (secure setup)
+
+Do not put FatSecret credentials in frontend files. The client secret must only live on a trusted backend.
+
+The app now calls a backend endpoint at:
+
+- `/api/fatsecret/search?query=<term>&limit=<n>`
+
+Expected JSON response shape:
+
+```json
+{
+	"items": [
+		{
+			"name": "Chicken Breast, grilled",
+			"calories": 165,
+			"protein": 31,
+			"carbs": 0,
+			"fat": 4
+		}
+	]
+}
+```
+
+Backend requirements:
+
+1. Keep `FATSECRET_CLIENT_ID` and `FATSECRET_CLIENT_SECRET` in server environment variables only.
+2. Exchange credentials for a FatSecret access token server-side.
+3. Query FatSecret food search and normalize results into the JSON format above.
+4. Never return secrets to the browser.
+
+If your credentials were shared in chat or committed anywhere, rotate them immediately in FatSecret developer settings.
+
+### Vercel environment variables
+
+If deploying on Vercel, add these project env vars:
+
+1. `FATSECRET_CLIENT_ID`
+2. `FATSECRET_CLIENT_SECRET`
+
+The route also accepts your current names:
+
+1. `Client_ID`
+2. `Client_Secret`
+
+This repo includes a server route at [api/fatsecret/search.js](api/fatsecret/search.js) that reads those env vars and proxies requests safely.
