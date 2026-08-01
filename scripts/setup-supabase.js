@@ -1177,9 +1177,16 @@ async function searchFatSecretFoods(query, limit = 8) {
 		});
 
 		if (!response.ok) {
+			let detail = '';
+			try {
+				const errorPayload = await response.json();
+				detail = String(errorPayload?.error || '').trim();
+			} catch {
+				detail = '';
+			}
 			return {
 				ok: false,
-				message: 'FatSecret search endpoint is unavailable. Configure /api/fatsecret/search first.',
+				message: detail ? `FatSecret search failed. ${detail}` : 'FatSecret search endpoint is unavailable. Configure /api/fatsecret/search first.',
 				items: [],
 			};
 		}
