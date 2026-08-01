@@ -6,6 +6,7 @@ const PROFILES_TABLE = 'profiles';
 const FOLLOWS_TABLE = 'follows';
 const PARTIES_TABLE = 'parties';
 const PARTY_MEMBERS_TABLE = 'party_members';
+const PROFILE_PHOTOS_BUCKET = 'profile-photos';
 const LOCAL_STATE_KEY = 'habit-checklist-v1';
 
 function normalizeSupabaseUrl(url) {
@@ -66,6 +67,27 @@ function describeTableError(prefix, tableName, error) {
 
 	if (message.toLowerCase().includes('row-level security')) {
 		return `${prefix}. Add RLS policies that allow this action for ${tableName}.`;
+	}
+
+	return `${prefix}. ${message}`;
+}
+
+function describeStorageError(prefix, bucketName, error) {
+	if (!error) {
+		return prefix;
+	}
+
+	const message = String(error.message || '').trim();
+	if (!message) {
+		return prefix;
+	}
+
+	if (message.includes('Bucket not found') || message.includes('The resource was not found')) {
+		return `${prefix}. Create the ${bucketName} storage bucket first.`;
+	}
+
+	if (message.toLowerCase().includes('row-level security') || message.toLowerCase().includes('permission denied')) {
+		return `${prefix}. Add storage policies that allow authenticated users to upload into ${bucketName}.`;
 	}
 
 	return `${prefix}. ${message}`;
@@ -489,17 +511,39 @@ async function ensureProfile() {
 
 	const user = ownerResult.user;
 	const defaultDisplayName = getDefaultDisplayNameFromUser(user);
+	const metadataPhotoUrl = String(user?.user_metadata?.photoUrl || '').trim();
+
+	const { data: existingProfile, error: existingProfileError } = await supabase
+		.from(PROFILES_TABLE)
+		.select('user_id, display_name, photo_url')
+		.eq('user_id', ownerResult.ownerKey)
+		.maybeSingle();
+
+	if (existingProfileError) {
+		return {
+			ok: false,
+			message: describeTableError('Could not load your profile', PROFILES_TABLE, existingProfileError),
+			profile: null,
+		};
+	}
+
+	if (existingProfile) {
+		return {
+			ok: true,
+			message: 'Profile is ready.',
+			profile: normalizeProfileRow(existingProfile, user),
+		};
+	}
 
 	const { data, error } = await supabase
 		.from(PROFILES_TABLE)
-		.upsert(
+		.insert(
 			{
 				user_id: ownerResult.ownerKey,
 				display_name: defaultDisplayName,
-				photo_url: String(user?.user_metadata?.photoUrl || ''),
+				photo_url: metadataPhotoUrl,
 				updated_at: new Date().toISOString(),
 			},
-			{ onConflict: 'user_id', ignoreDuplicates: false }
 		)
 		.select('user_id, display_name, photo_url')
 		.single();
@@ -571,6 +615,65 @@ async function updateMyProfile({ displayName, photoUrl }) {
 		ok: true,
 		message: 'Profile updated.',
 		profile: normalizeProfileRow(data, ownerResult.user),
+	};
+}
+
+function getFileExtension(fileName) {
+	const safeName = String(fileName || '').trim();
+	if (!safeName.includes('.')) {
+		return 'jpg';
+	}
+
+	const extension = safeName.split('.').pop().toLowerCase();
+	return extension || 'jpg';
+}
+
+async function uploadProfilePhoto(file) {
+	if (!supabase) {
+		return createErrorResult('Supabase auth is not configured.');
+	}
+
+	const ownerResult = await getStateOwner();
+	if (!ownerResult.ok) {
+		return createErrorResult(ownerResult.message);
+	}
+
+	if (!(file instanceof File)) {
+		return createErrorResult('Choose an image file first.');
+	}
+
+	if (!String(file.type || '').startsWith('image/')) {
+		return createErrorResult('Only image uploads are supported.');
+	}
+
+	const ext = getFileExtension(file.name);
+	const filePath = `${ownerResult.ownerKey}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+	const { error: uploadError } = await supabase
+		.storage
+		.from(PROFILE_PHOTOS_BUCKET)
+		.upload(filePath, file, {
+			upsert: true,
+			cacheControl: '3600',
+			contentType: file.type || undefined,
+		});
+
+	if (uploadError) {
+		return createErrorResult(describeStorageError('Could not upload profile photo', PROFILE_PHOTOS_BUCKET, uploadError));
+	}
+
+	const { data } = supabase.storage.from(PROFILE_PHOTOS_BUCKET).getPublicUrl(filePath);
+	const publicUrl = String(data?.publicUrl || '').trim();
+
+	if (!publicUrl) {
+		return createErrorResult('Photo uploaded but public URL could not be generated.');
+	}
+
+	return {
+		ok: true,
+		message: 'Photo uploaded.',
+		photoUrl: publicUrl,
+		path: filePath,
 	};
 }
 
@@ -997,6 +1100,52 @@ async function listMyParties() {
 	};
 }
 
+async function getXpLeaderboard(limit = 50) {
+	const ownerResult = await getStateOwner();
+	if (!ownerResult.ok) {
+		return {
+			ok: false,
+			message: ownerResult.message,
+			rows: [],
+		};
+	}
+
+	const safeLimit = Number.isFinite(Number(limit))
+		? Math.max(1, Math.min(200, Math.round(Number(limit))))
+		: 50;
+
+	const { data, error } = await supabase.rpc('get_xp_leaderboard', {
+		row_limit: safeLimit,
+	});
+
+	if (error) {
+		const rawMessage = String(error.message || '');
+		const lowered = rawMessage.toLowerCase();
+		if (
+			rawMessage.includes('get_xp_leaderboard') &&
+			(lowered.includes('does not exist') || lowered.includes('could not find the function'))
+		) {
+			return {
+				ok: false,
+				message: 'Leaderboard is not configured yet. Run the leaderboard SQL function from the README.',
+				rows: [],
+			};
+		}
+
+		return {
+			ok: false,
+			message: `Could not load leaderboard. ${rawMessage || 'Unknown database error.'}`,
+			rows: [],
+		};
+	}
+
+	return {
+		ok: true,
+		message: 'Leaderboard loaded.',
+		rows: Array.isArray(data) ? data : [],
+	};
+}
+
 window.supabase = supabase;
 window.supabaseSync = {
 	enabled: Boolean(supabase),
@@ -1016,6 +1165,7 @@ window.supabaseSync = {
 	saveState,
 	getMyProfile,
 	updateMyProfile,
+	uploadProfilePhoto,
 	searchProfiles,
 	followUser,
 	unfollowUser,
@@ -1024,4 +1174,5 @@ window.supabaseSync = {
 	createParty,
 	joinParty,
 	listMyParties,
+	getXpLeaderboard,
 };

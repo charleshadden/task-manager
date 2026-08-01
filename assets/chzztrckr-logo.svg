@@ -1,0 +1,30 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">CHZZTRCKR Adventurer Crest</title>
+  <desc id="desc">A fantasy shield crest with a sword and a twenty-sided die.</desc>
+  <defs>
+    <linearGradient id="shieldFill" x1="18" y1="12" x2="110" y2="118" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F7D48B"/>
+      <stop offset="1" stop-color="#D58A2E"/>
+    </linearGradient>
+    <linearGradient id="steel" x1="64" y1="8" x2="64" y2="110" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF4D8"/>
+      <stop offset="1" stop-color="#D9C4A1"/>
+    </linearGradient>
+  </defs>
+
+  <path d="M64 10L108 24V58C108 84 89 107 64 118C39 107 20 84 20 58V24L64 10Z" fill="url(#shieldFill)" stroke="#5A3115" stroke-width="6"/>
+  <path d="M64 18L99 29V57C99 78 84 96 64 106C44 96 29 78 29 57V29L64 18Z" fill="#2A1A13" stroke="#E7B76E" stroke-width="3"/>
+
+  <path d="M60 20H68V75H60V20Z" fill="url(#steel)" stroke="#6D4A2A" stroke-width="2"/>
+  <path d="M54 74H74L68 89H60L54 74Z" fill="#E8D0A9" stroke="#6D4A2A" stroke-width="2"/>
+  <path d="M50 38H78" stroke="#EED8B1" stroke-width="3" stroke-linecap="round"/>
+
+  <path d="M64 33L76 40L76 54L64 61L52 54L52 40L64 33Z" fill="#7D4A25" stroke="#F0C47D" stroke-width="2"/>
+  <circle cx="64" cy="47" r="2.4" fill="#F7E3C0"/>
+  <circle cx="58" cy="43" r="2" fill="#F7E3C0"/>
+  <circle cx="70" cy="43" r="2" fill="#F7E3C0"/>
+  <circle cx="58" cy="51" r="2" fill="#F7E3C0"/>
+  <circle cx="70" cy="51" r="2" fill="#F7E3C0"/>
+
+  <path d="M41 89C49 84 57 82 64 82C71 82 79 84 87 89" stroke="#E7B76E" stroke-width="3" stroke-linecap="round"/>
+</svg>

@@ -5,9 +5,10 @@ const LEVEL_XP_TIERS = [
   { maxLevel: 15, xpPerLevel: 20000 },
   { maxLevel: 20, xpPerLevel: 30000 },
 ];
-const ATTRIBUTE_XP_PER_POINT = 1000;
+const ATTRIBUTE_XP_PER_POINT = 10000;
 const DEFAULT_CLASS = 'Fighter';
 const DEFAULT_ARCHETYPE = 'Champion';
+const ATTRIBUTE_NAMES = ['Strength', 'Dexterity', 'Wisdom', 'Intelligence', 'Charisma', 'Constitution'];
 
 const summaryShell = document.getElementById('summaryShell');
 const summaryBootStatus = document.getElementById('summaryBootStatus');
@@ -21,6 +22,9 @@ const summaryCurrentStreak = document.getElementById('summaryCurrentStreak');
 const summaryBestStreak = document.getElementById('summaryBestStreak');
 const summaryDailyCompletions = document.getElementById('summaryDailyCompletions');
 const summaryAdventureCompletions = document.getElementById('summaryAdventureCompletions');
+const summaryAverageMood = document.getElementById('summaryAverageMood');
+const summaryAverageSteps = document.getElementById('summaryAverageSteps');
+const summaryAverageWeight = document.getElementById('summaryAverageWeight');
 const summaryProgressText = document.getElementById('summaryProgressText');
 const summaryAttributes = document.getElementById('summaryAttributes');
 const summaryAdventures = document.getElementById('summaryAdventures');
@@ -227,11 +231,29 @@ function renderRows(container, rows) {
   });
 }
 
-function renderAttributes(container, attributes) {
+function renderAttributes(container, attributes, baseAttributes) {
   if (!container) return;
   container.innerHTML = '';
 
-  const entries = Object.entries(attributes || {});
+  const names = [...new Set([
+    ...ATTRIBUTE_NAMES,
+    ...Object.keys(attributes || {}),
+    ...Object.keys(baseAttributes || {}),
+  ])];
+
+  const entries = names.map((name) => {
+    const xp = safeNumber(attributes?.[name]);
+    const base = safeNumber(baseAttributes?.[name]);
+    const earned = getAttributePoints(xp);
+    return {
+      name,
+      xp,
+      base,
+      earned,
+      total: base + earned,
+    };
+  });
+
   if (entries.length === 0) {
     const empty = document.createElement('li');
     empty.className = 'empty-state';
@@ -241,18 +263,18 @@ function renderAttributes(container, attributes) {
   }
 
   entries
-    .sort((a, b) => safeNumber(b[1]) - safeNumber(a[1]))
-    .forEach(([name, value]) => {
+    .sort((a, b) => b.total - a.total || b.xp - a.xp || a.name.localeCompare(b.name))
+    .forEach((entry) => {
       const item = document.createElement('li');
       item.className = 'summary-row';
 
       const label = document.createElement('span');
       label.className = 'summary-row-label';
-      label.textContent = name;
+      label.textContent = entry.name;
 
       const stats = document.createElement('span');
       stats.className = 'summary-row-stats';
-      stats.textContent = `${formatNumber(getAttributePoints(value))} points • ${formatNumber(value)} XP`;
+      stats.textContent = `${formatNumber(entry.total)} points (base ${formatNumber(entry.base)} + earned ${formatNumber(entry.earned)}) • ${formatNumber(entry.xp)} / ${formatNumber(ATTRIBUTE_XP_PER_POINT)} XP to next +1`;
 
       item.appendChild(label);
       item.appendChild(stats);
@@ -302,6 +324,47 @@ function renderSummary(state, user) {
 
   const adventureCompletionTotal = adventureRows.reduce((sum, row) => sum + row.completions, 0);
 
+  const moodScale = {
+    '😔': 1,
+    '😤': 2,
+    '😐': 3,
+    '😌': 4,
+    '😄': 5,
+  };
+  const moodByScore = {
+    1: '😔',
+    2: '😤',
+    3: '😐',
+    4: '😌',
+    5: '😄',
+  };
+
+  const moodLog = Array.isArray(safeState.moodLog) ? safeState.moodLog : [];
+  const moodScores = moodLog
+    .map((entry) => moodScale[String(entry?.mood || '').trim()] || null)
+    .filter((score) => Number.isFinite(score));
+  const averageMoodScore = moodScores.length > 0
+    ? moodScores.reduce((sum, score) => sum + score, 0) / moodScores.length
+    : 0;
+  const averageMoodRounded = averageMoodScore > 0 ? Math.round(averageMoodScore) : 0;
+  const averageMoodEmoji = averageMoodRounded > 0 ? moodByScore[averageMoodRounded] : '-';
+
+  const stepsLog = Array.isArray(safeState.stepsLog) ? safeState.stepsLog : [];
+  const stepValues = stepsLog
+    .map((entry) => safeNumber(entry?.steps))
+    .filter((value) => Number.isFinite(value) && value >= 0);
+  const averageSteps = stepValues.length > 0
+    ? Math.round(stepValues.reduce((sum, value) => sum + value, 0) / stepValues.length)
+    : 0;
+
+  const weightLog = Array.isArray(safeState.weightLog) ? safeState.weightLog : [];
+  const weightValues = weightLog
+    .map((entry) => safeNumber(entry?.weight))
+    .filter((value) => Number.isFinite(value) && value > 0);
+  const averageWeight = weightValues.length > 0
+    ? weightValues.reduce((sum, value) => sum + value, 0) / weightValues.length
+    : 0;
+
   if (summaryAccountEmail) {
     summaryAccountEmail.textContent = user?.email ? `Signed in as ${user.email}` : 'Signed in';
   }
@@ -320,12 +383,21 @@ function renderSummary(state, user) {
   if (summaryBestStreak) summaryBestStreak.textContent = `${bestStreak}`;
   if (summaryDailyCompletions) summaryDailyCompletions.textContent = formatNumber(totals.dailyCompletions);
   if (summaryAdventureCompletions) summaryAdventureCompletions.textContent = formatNumber(adventureCompletionTotal);
+  if (summaryAverageMood) {
+    summaryAverageMood.textContent = averageMoodEmoji === '-' ? '-' : `${averageMoodEmoji} (${averageMoodScore.toFixed(1)})`;
+  }
+  if (summaryAverageSteps) {
+    summaryAverageSteps.textContent = stepValues.length > 0 ? formatNumber(averageSteps) : '-';
+  }
+  if (summaryAverageWeight) {
+    summaryAverageWeight.textContent = weightValues.length > 0 ? averageWeight.toFixed(1) : '-';
+  }
 
   if (summaryProgressText) {
     summaryProgressText.textContent = `${formatNumber(xpInLevel)} / ${formatNumber(xpNeeded)} to next level`;
   }
 
-  renderAttributes(summaryAttributes, safeState.attributes || {});
+  renderAttributes(summaryAttributes, safeState.attributes || {}, safeState.baseAttributes || {});
   renderRows(summaryAdventures, adventureRows);
   renderRows(summaryDailyQuests, dailyRows);
 }

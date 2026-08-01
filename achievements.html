@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#4f46e5" />
+    <link rel="stylesheet" href="/styles.css?v=13" />
+    <title>Achievements | Habit Check</title>
+  </head>
+  <body>
+    <header class="brand-banner">
+      <a href="/index.html" class="brand-chip" aria-label="CHZZTRCKR home">
+        <img src="/assets/chzztrckr-logo.svg" class="brand-logo" alt="" />
+        <span class="brand-wordmark">
+          <span class="brand-title">CHZZTRCKR</span>
+          <span class="brand-sub">Adventurer's Guild</span>
+        </span>
+      </a>
+      <a href="/profile.html" class="brand-profile-bubble" aria-label="Open profile">
+        <img id="globalProfileAvatarImage" class="brand-profile-image" alt="Profile" hidden />
+        <span id="globalProfileAvatarFallback" class="brand-profile-fallback">A</span>
+      </a>
+    </header>
+
+    <div id="achievementsBootStatus" class="auth-gate">Checking your account...</div>
+
+    <main class="app-shell" id="achievementsShell" hidden>
+      <div class="account-bar">
+        <p id="achievementsAccountEmail" class="status-text">Checking account...</p>
+        <div class="account-actions">
+          <a href="/index.html" class="secondary-button link-button">Quests</a>
+          <a href="/profile.html" class="secondary-button link-button">Profile</a>
+          <a href="/social.html" class="secondary-button link-button">Social</a>
+          <a href="/summary.html" class="secondary-button link-button">Summary</a>
+          <a href="/leaderboard.html" class="secondary-button link-button">Leaderboard</a>
+          <button id="achievementsLogoutButton" type="button" class="secondary-button">Log out</button>
+        </div>
+      </div>
+
+      <header class="hero character-hero">
+        <div class="hero-intro">
+          <p class="eyebrow">Campaign Honors</p>
+          <h1>Achievements</h1>
+          <p class="subtitle">Badges you unlocked and when you earned them.</p>
+        </div>
+      </header>
+
+      <section class="card summary-section">
+        <div class="card-header"><h2>Badge Ledger</h2></div>
+        <ul id="achievementsList" class="summary-table-list"></ul>
+      </section>
+
+      <p id="achievementsStatus" class="status-text">Loading achievements...</p>
+    </main>
+
+    <script type="module" src="/scripts/setup-supabase.js?v=8"></script>
+    <script type="module" src="/scripts/top-avatar.js?v=2"></script>
+    <script type="module" src="/scripts/achievements.js?v=1"></script>
+  </body>
+</html>

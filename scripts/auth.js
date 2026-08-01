@@ -3,7 +3,6 @@ function getAuthAdapter() {
 }
 
 const ATTRIBUTE_NAMES = ['Strength', 'Dexterity', 'Wisdom', 'Intelligence', 'Charisma', 'Constitution'];
-const ATTRIBUTE_XP_PER_POINT = 1000;
 
 function getMode() {
   return document.body.dataset.authMode === 'signup' ? 'signup' : 'login';
@@ -27,10 +26,13 @@ function redirectToApp() {
 const authForm = document.getElementById('authForm');
 const emailInput = document.getElementById('emailInput');
 const passwordInput = document.getElementById('passwordInput');
+const displayNameInput = document.getElementById('displayNameInput');
+const photoUrlInput = document.getElementById('photoUrlInput');
 const submitButton = document.getElementById('submitButton');
 const authStatusEl = document.getElementById('authStatus');
 const assessmentArchetypeEl = document.getElementById('assessmentArchetype');
 const assessmentPreviewEl = document.getElementById('assessmentPreview');
+const photoFileInput = document.getElementById('photoFileInput');
 
 const workoutDaysInput = document.getElementById('workoutDaysInput');
 const workoutStyleInput = document.getElementById('workoutStyleInput');
@@ -81,6 +83,59 @@ function readOptionalNumber(value, min, max, fallback) {
     return fallback;
   }
   return clampNumber(normalized, min, max);
+}
+
+function normalizePhotoUrl(url) {
+  const value = String(url || '').trim();
+  if (!value) {
+    return '';
+  }
+
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return '';
+    }
+    return parsed.toString();
+  } catch {
+    return '';
+  }
+}
+
+async function uploadSignupPhotoIfPossible(authAdapter, selectedFile, displayName) {
+  if (!selectedFile || !(selectedFile instanceof File)) {
+    return { ok: true, photoUrl: '' };
+  }
+
+  if (typeof authAdapter.uploadProfilePhoto !== 'function') {
+    return { ok: false, photoUrl: '', message: 'Photo upload method is unavailable in this deployment.' };
+  }
+
+  const uploadResult = await authAdapter.uploadProfilePhoto(selectedFile);
+  if (!uploadResult.ok || !uploadResult.photoUrl) {
+    return {
+      ok: false,
+      photoUrl: '',
+      message: uploadResult.message || 'Photo upload failed.',
+    };
+  }
+
+  if (typeof authAdapter.updateMyProfile === 'function') {
+    const profileResult = await authAdapter.updateMyProfile({
+      displayName,
+      photoUrl: uploadResult.photoUrl,
+    });
+
+    if (!profileResult.ok) {
+      return {
+        ok: false,
+        photoUrl: uploadResult.photoUrl,
+        message: `Image uploaded, but profile update failed. ${profileResult.message}`,
+      };
+    }
+  }
+
+  return { ok: true, photoUrl: uploadResult.photoUrl };
 }
 
 function getAssessmentAnswers() {
@@ -303,7 +358,7 @@ function calculateStartingProfile(answers) {
   };
 
   const startingAttributes = ATTRIBUTE_NAMES.reduce((accumulator, attributeName) => {
-    accumulator[attributeName] = startingPoints[attributeName] * ATTRIBUTE_XP_PER_POINT;
+    accumulator[attributeName] = startingPoints[attributeName];
     return accumulator;
   }, {});
 
@@ -442,11 +497,16 @@ authForm?.addEventListener('submit', async (event) => {
   const email = emailInput.value.trim();
   const password = passwordInput.value;
   const startingProfile = mode === 'signup' ? calculateStartingProfile(getAssessmentAnswers()) : null;
+  const displayName = String(displayNameInput?.value || '').trim();
+  const photoUrl = normalizePhotoUrl(photoUrlInput?.value || '');
+  const selectedPhotoFile = photoFileInput?.files?.[0] || null;
 
   setStatus(mode === 'signup' ? 'Creating account...' : 'Logging in...');
 
   const result = mode === 'signup'
     ? await authAdapter.signUp(email, password, {
+      displayName,
+      photoUrl,
       startingProfile: {
         ...startingProfile,
         createdAt: new Date().toISOString(),
@@ -462,10 +522,23 @@ authForm?.addEventListener('submit', async (event) => {
   }
 
   if (mode === 'signup' && !result.session) {
-    setStatus('Account created. If email confirmation is enabled in Supabase, check your email. Otherwise log in now.');
+    const pendingUploadMessage = selectedPhotoFile
+      ? ' Your image will need to be uploaded after you log in (Profile page).'
+      : '';
+    setStatus(`Account created. If email confirmation is enabled in Supabase, check your email. Otherwise log in now.${pendingUploadMessage}`);
     authForm.reset();
     renderAssessmentPreview();
     return;
+  }
+
+  if (mode === 'signup' && selectedPhotoFile) {
+    setStatus('Account created. Uploading profile image...');
+    const uploadResult = await uploadSignupPhotoIfPossible(authAdapter, selectedPhotoFile, displayName);
+    if (!uploadResult.ok) {
+      setStatus(`Account created. ${uploadResult.message} You can retry later on your Profile page.`);
+      redirectToApp();
+      return;
+    }
   }
 
   setStatus('Success. Redirecting...');
