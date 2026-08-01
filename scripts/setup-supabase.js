@@ -1146,6 +1146,59 @@ async function getXpLeaderboard(limit = 50) {
 	};
 }
 
+async function searchFatSecretFoods(query, limit = 8) {
+	const ownerResult = await getStateOwner();
+	if (!ownerResult.ok) {
+		return {
+			ok: false,
+			message: ownerResult.message,
+			items: [],
+		};
+	}
+
+	const safeQuery = String(query || '').trim();
+	if (!safeQuery) {
+		return {
+			ok: false,
+			message: 'Type a food name first.',
+			items: [],
+		};
+	}
+
+	const safeLimit = Number.isFinite(Number(limit)) ? Math.max(1, Math.min(20, Math.round(Number(limit)))) : 8;
+	const endpoint = `/api/fatsecret/search?query=${encodeURIComponent(safeQuery)}&limit=${safeLimit}`;
+
+	try {
+		const response = await fetch(endpoint, {
+			method: 'GET',
+			headers: {
+				'Accept': 'application/json',
+			},
+		});
+
+		if (!response.ok) {
+			return {
+				ok: false,
+				message: 'FatSecret search endpoint is unavailable. Configure /api/fatsecret/search first.',
+				items: [],
+			};
+		}
+
+		const payload = await response.json();
+		return {
+			ok: true,
+			message: Array.isArray(payload?.items) && payload.items.length > 0 ? 'Food results loaded.' : 'No matching foods found.',
+			items: Array.isArray(payload?.items) ? payload.items : [],
+		};
+	} catch {
+		return {
+			ok: false,
+			message: 'FatSecret lookup failed. Check your backend integration.',
+			items: [],
+		};
+	}
+}
+
 window.supabase = supabase;
 window.supabaseSync = {
 	enabled: Boolean(supabase),
@@ -1175,4 +1228,5 @@ window.supabaseSync = {
 	joinParty,
 	listMyParties,
 	getXpLeaderboard,
+	searchFatSecretFoods,
 };

@@ -17,6 +17,7 @@ const DAILY_STREAK_BONUS_XP = 1000;
 const ATTRIBUTE_NAMES = ['Strength', 'Dexterity', 'Wisdom', 'Intelligence', 'Charisma', 'Constitution'];
 const DEFAULT_PLAYER_CLASS = 'Fighter';
 const DEFAULT_ARCHETYPE = 'Champion';
+const FATSECRET_SEARCH_LIMIT = 8;
 
 const defaultUnconditionals = [
   { id: 'steps', text: 'Get your steps', done: false, attribute: 'Constitution' },
@@ -95,6 +96,15 @@ function createDefaultBaseAttributes() {
   }, {});
 }
 
+function createEmptyMacroValues() {
+  return {
+    calories: '',
+    protein: '',
+    carbs: '',
+    fat: '',
+  };
+}
+
 function createDefaultTotals() {
   const dailyTaskCompletions = {};
   const dailyTaskXpEarned = {};
@@ -150,6 +160,8 @@ function createDefaultState() {
     stepsLog: [],
     weightLog: [],
     currentWeight: '',
+    macroLog: [],
+    currentMacros: createEmptyMacroValues(),
     updatedAt: new Date().toISOString(),
   };
 }
@@ -281,6 +293,10 @@ function ensureStateShape() {
   state.stepsLog = Array.isArray(state.stepsLog) ? state.stepsLog : [];
   state.weightLog = Array.isArray(state.weightLog) ? state.weightLog : [];
   state.currentWeight = state.currentWeight || '';
+  state.macroLog = Array.isArray(state.macroLog) ? state.macroLog : [];
+  state.currentMacros = state.currentMacros && typeof state.currentMacros === 'object'
+    ? { ...createEmptyMacroValues(), ...state.currentMacros }
+    : createEmptyMacroValues();
 
   ATTRIBUTE_NAMES.forEach((attributeName) => {
     const rawXp = Math.max(0, Number(state.attributes?.[attributeName]) || 0);
@@ -320,6 +336,15 @@ const checklistSections = document.getElementById('checklistSections');
 const moodPicker = document.getElementById('moodPicker');
 const weightInput = document.getElementById('weightInput');
 const weightSaveButton = document.getElementById('weightSaveButton');
+const macroCaloriesInput = document.getElementById('macroCaloriesInput');
+const macroProteinInput = document.getElementById('macroProteinInput');
+const macroCarbsInput = document.getElementById('macroCarbsInput');
+const macroFatInput = document.getElementById('macroFatInput');
+const macroSaveButton = document.getElementById('macroSaveButton');
+const fatsecretQueryInput = document.getElementById('fatsecretQueryInput');
+const fatsecretSearchButton = document.getElementById('fatsecretSearchButton');
+const fatsecretSearchStatus = document.getElementById('fatsecretSearchStatus');
+const fatsecretSearchResults = document.getElementById('fatsecretSearchResults');
 const profilePhotoPreviewEl = document.getElementById('profilePhotoPreview');
 const profilePhotoFallbackEl = document.getElementById('profilePhotoFallback');
 const profileDisplayNameInput = document.getElementById('profileDisplayNameInput');
@@ -920,6 +945,10 @@ function loadLocalState(user = currentUser) {
       stepsLog: Array.isArray(parsed.stepsLog) ? parsed.stepsLog : [],
       weightLog: Array.isArray(parsed.weightLog) ? parsed.weightLog : [],
       currentWeight: parsed.currentWeight || '',
+      macroLog: Array.isArray(parsed.macroLog) ? parsed.macroLog : [],
+      currentMacros: parsed.currentMacros && typeof parsed.currentMacros === 'object'
+        ? { ...createEmptyMacroValues(), ...parsed.currentMacros }
+        : createEmptyMacroValues(),
       updatedAt: parsed.updatedAt || new Date().toISOString(),
     };
   } catch {
@@ -1025,6 +1054,7 @@ function ensureTodayState() {
   state.conditionals = state.conditionals.map((task) => ({ ...task, done: false, completedDate: '', xpEarned: 0, attribute: getFixedAttribute(task.text) }));
   state.mood = '';
   state.currentWeight = '';
+  state.currentMacros = createEmptyMacroValues();
   state.attributes = state.attributes || {};
   state.lastSeenDate = today;
   saveState();
@@ -1336,7 +1366,8 @@ function scheduleReminders() {
     const remaining = state.unconditionals.filter((task) => !task.done).length;
     const moodPending = !state.mood;
     const weightPending = !state.currentWeight;
-    const metaRemaining = (moodPending ? 1 : 0) + (weightPending ? 1 : 0);
+    const macrosPending = !state.currentMacros?.calories && !state.currentMacros?.protein && !state.currentMacros?.carbs && !state.currentMacros?.fat;
+    const metaRemaining = (moodPending ? 1 : 0) + (weightPending ? 1 : 0) + (macrosPending ? 1 : 0);
     const totalRemaining = remaining + metaRemaining;
 
     showNotification(
@@ -1361,6 +1392,7 @@ function scheduleReminders() {
     }));
     state.mood = '';
     state.currentWeight = '';
+    state.currentMacros = createEmptyMacroValues();
     state.lastSeenDate = getTodayKey();
     saveState();
     render();
@@ -1432,8 +1464,153 @@ function renderMoodPicker() {
   });
 }
 
+function setFatSecretStatus(message) {
+  if (fatsecretSearchStatus) {
+    fatsecretSearchStatus.textContent = message;
+  }
+}
+
+function setMacroFieldValues(values) {
+  const safeValues = values && typeof values === 'object' ? values : createEmptyMacroValues();
+  if (macroCaloriesInput) macroCaloriesInput.value = safeValues.calories || '';
+  if (macroProteinInput) macroProteinInput.value = safeValues.protein || '';
+  if (macroCarbsInput) macroCarbsInput.value = safeValues.carbs || '';
+  if (macroFatInput) macroFatInput.value = safeValues.fat || '';
+}
+
+function parseMacroInputValue(value) {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) return '';
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed)) return '';
+  return Math.max(0, Math.round(parsed));
+}
+
+function upsertMacroLog(entry) {
+  const today = getTodayKey();
+  const existingIndex = state.macroLog.findIndex((item) => item.date === today);
+  if (existingIndex >= 0) {
+    state.macroLog[existingIndex] = entry;
+  } else {
+    state.macroLog.push(entry);
+  }
+}
+
+function saveMacroEntry() {
+  const nextMacros = {
+    calories: parseMacroInputValue(macroCaloriesInput?.value),
+    protein: parseMacroInputValue(macroProteinInput?.value),
+    carbs: parseMacroInputValue(macroCarbsInput?.value),
+    fat: parseMacroInputValue(macroFatInput?.value),
+  };
+
+  const hasAnyValue = Object.values(nextMacros).some((value) => value !== '');
+  if (!hasAnyValue) return;
+
+  state.currentMacros = {
+    calories: nextMacros.calories === '' ? '' : String(nextMacros.calories),
+    protein: nextMacros.protein === '' ? '' : String(nextMacros.protein),
+    carbs: nextMacros.carbs === '' ? '' : String(nextMacros.carbs),
+    fat: nextMacros.fat === '' ? '' : String(nextMacros.fat),
+  };
+
+  upsertMacroLog({
+    date: getTodayKey(),
+    calories: nextMacros.calories === '' ? 0 : nextMacros.calories,
+    protein: nextMacros.protein === '' ? 0 : nextMacros.protein,
+    carbs: nextMacros.carbs === '' ? 0 : nextMacros.carbs,
+    fat: nextMacros.fat === '' ? 0 : nextMacros.fat,
+  });
+
+  saveState();
+  updateDailyMeta();
+  render();
+  launchConfetti();
+}
+
+function renderFatSecretSearchResults(items) {
+  if (!fatsecretSearchResults) return;
+  fatsecretSearchResults.innerHTML = '';
+
+  if (!Array.isArray(items) || items.length === 0) {
+    const empty = document.createElement('li');
+    empty.className = 'empty-state';
+    empty.textContent = 'No matching foods found.';
+    fatsecretSearchResults.appendChild(empty);
+    return;
+  }
+
+  items.forEach((item) => {
+    const row = document.createElement('li');
+    row.className = 'fatsecret-result-item';
+
+    const title = document.createElement('div');
+    title.className = 'fatsecret-result-title';
+    title.textContent = String(item?.name || 'Unknown food');
+
+    const detail = document.createElement('div');
+    detail.className = 'fatsecret-result-detail';
+    detail.textContent = `${item.calories || 0} kcal • P ${item.protein || 0}g • C ${item.carbs || 0}g • F ${item.fat || 0}g`;
+
+    const useButton = document.createElement('button');
+    useButton.type = 'button';
+    useButton.className = 'secondary-button';
+    useButton.textContent = 'Use';
+    useButton.addEventListener('click', () => {
+      const next = {
+        calories: Number.isFinite(Number(item?.calories)) ? Math.max(0, Math.round(Number(item.calories))) : '',
+        protein: Number.isFinite(Number(item?.protein)) ? Math.max(0, Math.round(Number(item.protein))) : '',
+        carbs: Number.isFinite(Number(item?.carbs)) ? Math.max(0, Math.round(Number(item.carbs))) : '',
+        fat: Number.isFinite(Number(item?.fat)) ? Math.max(0, Math.round(Number(item.fat))) : '',
+      };
+
+      setMacroFieldValues({
+        calories: next.calories === '' ? '' : String(next.calories),
+        protein: next.protein === '' ? '' : String(next.protein),
+        carbs: next.carbs === '' ? '' : String(next.carbs),
+        fat: next.fat === '' ? '' : String(next.fat),
+      });
+      saveMacroEntry();
+    });
+
+    row.appendChild(title);
+    row.appendChild(detail);
+    row.appendChild(useButton);
+    fatsecretSearchResults.appendChild(row);
+  });
+}
+
+async function runFatSecretFoodSearch() {
+  const query = String(fatsecretQueryInput?.value || '').trim();
+  if (!query) {
+    setFatSecretStatus('Type a food name to search.');
+    return;
+  }
+
+  const syncAdapter = getSyncAdapter();
+  if (!syncAdapter?.enabled || typeof syncAdapter.searchFatSecretFoods !== 'function') {
+    setFatSecretStatus('FatSecret search is not configured. Add the backend endpoint described in README.');
+    return;
+  }
+
+  fatsecretSearchButton.disabled = true;
+  setFatSecretStatus('Searching foods...');
+  const result = await syncAdapter.searchFatSecretFoods(query, FATSECRET_SEARCH_LIMIT);
+  fatsecretSearchButton.disabled = false;
+
+  if (!result.ok) {
+    setFatSecretStatus(result.message);
+    renderFatSecretSearchResults([]);
+    return;
+  }
+
+  setFatSecretStatus(result.message);
+  renderFatSecretSearchResults(result.items);
+}
+
 function updateDailyMeta() {
   weightInput.value = state.currentWeight || '';
+  setMacroFieldValues(state.currentMacros || createEmptyMacroValues());
   renderMoodPicker();
 }
 
@@ -1484,6 +1661,11 @@ function renderDailyChecklist() {
       label: `Weight: ${state.currentWeight || 'Not set'}`,
       done: Boolean(state.currentWeight),
     },
+    {
+      key: 'macros',
+      label: `Macros: ${state.currentMacros?.calories || '-'} kcal / P${state.currentMacros?.protein || '-'} C${state.currentMacros?.carbs || '-'} F${state.currentMacros?.fat || '-'}`,
+      done: Boolean(state.currentMacros?.calories || state.currentMacros?.protein || state.currentMacros?.carbs || state.currentMacros?.fat),
+    },
   ];
 
   const baseTaskCount = state.unconditionals.length;
@@ -1510,6 +1692,11 @@ function renderDailyChecklist() {
           if (!checkbox.checked) {
             state.currentWeight = '';
             weightInput.value = '';
+          }
+        } else if (task.meta.key === 'macros') {
+          if (!checkbox.checked) {
+            state.currentMacros = createEmptyMacroValues();
+            setMacroFieldValues(state.currentMacros);
           }
         }
         saveState();
@@ -2051,9 +2238,10 @@ function render() {
   const xpNeededForNextLevel = getXpForNextLevel(level);
   const xpInLevel = Math.max(0, overallXp - levelStartXp);
 
-  const dailyMetaRequirementCount = 2;
+  const dailyMetaRequirementCount = 3;
   const requiredDailyCount = state.unconditionals.length + dailyMetaRequirementCount;
-  const completedRequiredCount = completed + (state.mood ? 1 : 0) + (state.currentWeight ? 1 : 0);
+  const macrosDone = Boolean(state.currentMacros?.calories || state.currentMacros?.protein || state.currentMacros?.carbs || state.currentMacros?.fat);
+  const completedRequiredCount = completed + (state.mood ? 1 : 0) + (state.currentWeight ? 1 : 0) + (macrosDone ? 1 : 0);
   const dailyPercent = requiredDailyCount ? Math.round((completedRequiredCount / requiredDailyCount) * 100) : 0;
   const allRequiredDone = requiredDailyCount > 0 && completedRequiredCount >= requiredDailyCount;
 
@@ -2118,6 +2306,7 @@ resetButton.addEventListener('click', () => {
   state.conditionals = state.conditionals.map((task) => ({ ...task, done: false, completedDate: '', xpEarned: 0, attribute: getFixedAttribute(task.text) }));
   state.mood = '';
   state.currentWeight = '';
+  state.currentMacros = createEmptyMacroValues();
   state.history = state.history.filter((day) => day !== getTodayKey());
   saveState();
   render();
@@ -2167,6 +2356,30 @@ weightInput.addEventListener('keydown', (event) => {
   if (event.key === 'Enter') {
     event.preventDefault();
     saveWeightEntry();
+  }
+});
+
+macroSaveButton?.addEventListener('click', () => {
+  saveMacroEntry();
+});
+
+[macroCaloriesInput, macroProteinInput, macroCarbsInput, macroFatInput].forEach((input) => {
+  input?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      saveMacroEntry();
+    }
+  });
+});
+
+fatsecretSearchButton?.addEventListener('click', () => {
+  runFatSecretFoodSearch();
+});
+
+fatsecretQueryInput?.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    runFatSecretFoodSearch();
   }
 });
 

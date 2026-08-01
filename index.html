@@ -119,6 +119,25 @@
               <button id="weightSaveButton" type="button">Save</button>
             </div>
           </div>
+          <div class="daily-meta-row daily-meta-macro-row">
+            <span class="daily-meta-label">Macros</span>
+            <div class="macro-grid">
+              <input id="macroCaloriesInput" class="daily-meta-input" type="number" inputmode="numeric" min="0" placeholder="Calories" aria-label="Calories" />
+              <input id="macroProteinInput" class="daily-meta-input" type="number" inputmode="numeric" min="0" placeholder="Protein (g)" aria-label="Protein grams" />
+              <input id="macroCarbsInput" class="daily-meta-input" type="number" inputmode="numeric" min="0" placeholder="Carbs (g)" aria-label="Carbs grams" />
+              <input id="macroFatInput" class="daily-meta-input" type="number" inputmode="numeric" min="0" placeholder="Fat (g)" aria-label="Fat grams" />
+              <button id="macroSaveButton" type="button">Save macros</button>
+            </div>
+          </div>
+          <div class="daily-meta-row fatsecret-row">
+            <label class="daily-meta-label" for="fatsecretQueryInput">Food lookup</label>
+            <div class="fatsecret-inline">
+              <input id="fatsecretQueryInput" class="daily-meta-input" type="text" placeholder="Search food via FatSecret" />
+              <button id="fatsecretSearchButton" type="button" class="secondary-button">Search</button>
+            </div>
+          </div>
+          <p id="fatsecretSearchStatus" class="status-text">Food search requires backend setup.</p>
+          <ul id="fatsecretSearchResults" class="social-list"></ul>
         </div>
         <ul id="taskList" class="task-list"></ul>
       </section>
@@ -136,6 +155,6 @@
 
     <script type="module" src="/scripts/setup-supabase.js?v=8"></script>
     <script type="module" src="/scripts/top-avatar.js?v=2"></script>
-    <script type="module" src="/app.js?v=20"></script>
+    <script type="module" src="/app.js?v=21"></script>
   </body>
 </html>
