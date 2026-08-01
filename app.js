@@ -187,6 +187,7 @@ function createDefaultState() {
     weightLog: [],
     currentWeight: '',
     mealLog: [],
+    savedFoods: [],
     macroLog: [],
     currentMacros: createEmptyMacroValues(),
     macroGoals: createEmptyMacroGoalValues(),
@@ -352,6 +353,9 @@ function ensureStateShape() {
   state.mealLog = Array.isArray(state.mealLog)
     ? state.mealLog.filter((entry) => entry && typeof entry === 'object' && entry.id && entry.date)
     : [];
+  state.savedFoods = Array.isArray(state.savedFoods)
+    ? state.savedFoods.map((item) => normalizeSavedFoodItem(item)).filter(Boolean)
+    : [];
   state.macroLog = Array.isArray(state.macroLog) ? state.macroLog : [];
   state.currentMacros = state.currentMacros && typeof state.currentMacros === 'object'
     ? { ...createEmptyMacroValues(), ...state.currentMacros }
@@ -417,12 +421,39 @@ const foodLookupSearchStatus = document.getElementById('foodLookupSearchStatus')
 const foodLookupSearchResults = document.getElementById('foodLookupSearchResults');
 const addMealDialog = document.getElementById('addMealDialog');
 const addMealForm = document.getElementById('addMealForm');
-const mealNameInput = document.getElementById('mealNameInput');
-const mealFoodInput = document.getElementById('mealFoodInput');
-const mealCaloriesInput = document.getElementById('mealCaloriesInput');
-const mealProteinInput = document.getElementById('mealProteinInput');
-const mealCarbsInput = document.getElementById('mealCarbsInput');
-const mealFatInput = document.getElementById('mealFatInput');
+const mealBuilderTabButton = document.getElementById('mealBuilderTabButton');
+const mealHistoryTabButton = document.getElementById('mealHistoryTabButton');
+const mealBuilderPanel = document.getElementById('mealBuilderPanel');
+const mealHistoryPanel = document.getElementById('mealHistoryPanel');
+const mealHistoryDateInput = document.getElementById('mealHistoryDateInput');
+const mealHistoryDailySummary = document.getElementById('mealHistoryDailySummary');
+const mealHistorySevenDaySummary = document.getElementById('mealHistorySevenDaySummary');
+const mealHistoryAlcoholSummary = document.getElementById('mealHistoryAlcoholSummary');
+const mealHistoryItemsList = document.getElementById('mealHistoryItemsList');
+const mealHistoryRangeChipButtons = Array.from(document.querySelectorAll('.meal-history-range-chip'));
+const mealHistoryChart = document.getElementById('mealHistoryChart');
+const mealHistoryChartEmpty = document.getElementById('mealHistoryChartEmpty');
+const mealTypeInput = document.getElementById('mealTypeInput');
+const mealTypeCustomField = document.getElementById('mealTypeCustomField');
+const mealTypeCustomInput = document.getElementById('mealTypeCustomInput');
+const mealFoodFields = document.getElementById('mealFoodFields');
+const mealFoodSearchInput = document.getElementById('mealFoodSearchInput');
+const mealFoodSearchStatus = document.getElementById('mealFoodSearchStatus');
+const mealFoodSearchResults = document.getElementById('mealFoodSearchResults');
+const mealAlcoholFields = document.getElementById('mealAlcoholFields');
+const mealItemNameInput = document.getElementById('mealItemNameInput');
+const mealItemCaloriesInput = document.getElementById('mealItemCaloriesInput');
+const mealItemProteinInput = document.getElementById('mealItemProteinInput');
+const mealItemCarbsInput = document.getElementById('mealItemCarbsInput');
+const mealItemFatInput = document.getElementById('mealItemFatInput');
+const saveMealItemToMyFoodsCheckbox = document.getElementById('saveMealItemToMyFoodsCheckbox');
+const alcoholDrinkTypeInput = document.getElementById('alcoholDrinkTypeInput');
+const alcoholDrinkCountInput = document.getElementById('alcoholDrinkCountInput');
+const addMealItemButton = document.getElementById('addMealItemButton');
+const mealDraftItemsList = document.getElementById('mealDraftItemsList');
+const mealDraftTotals = document.getElementById('mealDraftTotals');
+const mealDialogStatus = document.getElementById('mealDialogStatus');
+const saveMealButton = document.getElementById('saveMealButton');
 const cancelMealButton = document.getElementById('cancelMealButton');
 const addChecklistDialog = document.getElementById('addChecklistDialog');
 const addChecklistForm = document.getElementById('addChecklistForm');
@@ -457,6 +488,22 @@ const moodOptions = [
 ];
 
 let activeChecklistSectionKey = '';
+let draftMealItems = [];
+let activeMealDialogTab = 'builder';
+let activeMealHistoryRangeDays = 7;
+
+const ALCOHOL_MACROS_PER_DRINK = {
+  beer: { label: 'Beer', calories: 153, protein: 2, carbs: 13, fat: 0 },
+  wine: { label: 'Wine', calories: 125, protein: 0, carbs: 4, fat: 0 },
+  spirit: { label: 'Liquor shot', calories: 97, protein: 0, carbs: 0, fat: 0 },
+  cocktail: { label: 'Cocktail', calories: 200, protein: 0, carbs: 18, fat: 0 },
+  seltzer: { label: 'Hard seltzer', calories: 100, protein: 0, carbs: 2, fat: 0 },
+  cider: { label: 'Cider', calories: 190, protein: 0, carbs: 21, fat: 0 },
+};
+
+const ALCOHOL_FOOD_LABELS = Object.values(ALCOHOL_MACROS_PER_DRINK)
+  .map((item) => String(item.label || '').toLowerCase())
+  .filter(Boolean);
 
 function getSyncAdapter() {
   return window.supabaseSync || null;
@@ -1642,12 +1689,48 @@ function normalizeFoodName(value) {
   return String(value || '').trim().toLowerCase();
 }
 
+function normalizeSavedFoodItem(item) {
+  if (!item || typeof item !== 'object') return null;
+  const name = sanitizeMealText(item.name, 'Food');
+  const calories = Number.isFinite(Number(item.calories)) ? Math.max(0, Math.round(Number(item.calories))) : 0;
+  const protein = Number.isFinite(Number(item.protein)) ? Math.max(0, Math.round(Number(item.protein))) : 0;
+  const carbs = Number.isFinite(Number(item.carbs)) ? Math.max(0, Math.round(Number(item.carbs))) : 0;
+  const fat = Number.isFinite(Number(item.fat)) ? Math.max(0, Math.round(Number(item.fat))) : 0;
+
+  if (!name) return null;
+  if ([calories, protein, carbs, fat].every((value) => value <= 0)) return null;
+
+  return {
+    name,
+    calories,
+    protein,
+    carbs,
+    fat,
+    source: 'My Foods',
+  };
+}
+
+function upsertSavedFood(item) {
+  const normalized = normalizeSavedFoodItem(item);
+  if (!normalized) return false;
+
+  state.savedFoods = Array.isArray(state.savedFoods) ? state.savedFoods : [];
+  const key = normalizeFoodName(normalized.name);
+  state.savedFoods = [
+    normalized,
+    ...state.savedFoods.filter((existing) => normalizeFoodName(existing?.name) !== key),
+  ].slice(0, 250);
+  return true;
+}
+
 function searchLocalFoods(query, limit = FOOD_SEARCH_LIMIT) {
   const normalized = String(query || '').trim().toLowerCase();
   if (!normalized) return [];
 
   const communityFoods = Array.isArray(communityFoodLibrary) ? communityFoodLibrary : [];
+  const savedFoods = Array.isArray(state.savedFoods) ? state.savedFoods : [];
   const combinedLibrary = [
+    ...savedFoods.map((item) => ({ ...item, source: 'My Foods' })),
     ...LOCAL_FOOD_LIBRARY.map((item) => ({ ...item, source: 'Built-in' })),
     ...communityFoods.map((item) => ({ ...item, source: item.source || 'Community' })),
   ];
@@ -1711,6 +1794,218 @@ function getMacroValuesAsNumbers(values) {
 function getTodayMealEntries() {
   const today = getTodayKey();
   return (state.mealLog || []).filter((entry) => entry?.date === today);
+}
+
+function getMealEntriesByDateKey(dateKey) {
+  const key = String(dateKey || '').trim();
+  if (!key) return [];
+  return (state.mealLog || []).filter((entry) => entry?.date === key);
+}
+
+function getMacroTotalsFromEntries(entries) {
+  return (Array.isArray(entries) ? entries : []).reduce((totals, entry) => {
+    totals.calories += Number(entry?.calories) || 0;
+    totals.protein += Number(entry?.protein) || 0;
+    totals.carbs += Number(entry?.carbs) || 0;
+    totals.fat += Number(entry?.fat) || 0;
+    return totals;
+  }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+}
+
+function isAlcoholMealEntry(entry) {
+  if (!entry || typeof entry !== 'object') return false;
+  const category = String(entry.category || '').toLowerCase().trim();
+  if (category === 'alcohol') return true;
+
+  const mealName = String(entry.meal || '').toLowerCase().trim();
+  if (mealName === 'alcohol') return true;
+
+  const foodText = String(entry.food || '').toLowerCase();
+  return ALCOHOL_FOOD_LABELS.some((label) => foodText.includes(label));
+}
+
+function getAlcoholMacroTotalsFromEntries(entries) {
+  const alcoholEntries = (Array.isArray(entries) ? entries : []).filter((entry) => isAlcoholMealEntry(entry));
+  return getMacroTotalsFromEntries(alcoholEntries);
+}
+
+function parseDateKeyToDate(dateKey) {
+  const [yearText, monthText, dayText] = String(dateKey || '').split('-');
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    return new Date();
+  }
+  return new Date(year, Math.max(0, month - 1), Math.max(1, day));
+}
+
+function getHistoryWindowDateKeys(endDateKey, dayCount) {
+  const safeDayCount = Math.max(1, Number(dayCount) || 7);
+  const endDate = parseDateKeyToDate(endDateKey || getTodayKey());
+  const keys = [];
+
+  for (let offset = safeDayCount - 1; offset >= 0; offset -= 1) {
+    const date = new Date(endDate);
+    date.setDate(endDate.getDate() - offset);
+    keys.push(toDateKey(date));
+  }
+
+  return keys;
+}
+
+function getMacroStatsForWindow(endDateKey, dayCount) {
+  const keys = getHistoryWindowDateKeys(endDateKey, dayCount);
+  const total = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+  const alcoholTotal = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+  const series = [];
+
+  keys.forEach((key) => {
+    const entries = getMealEntriesByDateKey(key);
+    const dayTotals = getMacroTotalsFromEntries(entries);
+    const dayAlcoholTotals = getAlcoholMacroTotalsFromEntries(entries);
+    total.calories += dayTotals.calories;
+    total.protein += dayTotals.protein;
+    total.carbs += dayTotals.carbs;
+    total.fat += dayTotals.fat;
+
+    alcoholTotal.calories += dayAlcoholTotals.calories;
+    alcoholTotal.protein += dayAlcoholTotals.protein;
+    alcoholTotal.carbs += dayAlcoholTotals.carbs;
+    alcoholTotal.fat += dayAlcoholTotals.fat;
+
+    series.push({
+      dateKey: key,
+      label: formatShortDateLabel(key),
+      calories: dayTotals.calories,
+      alcoholCalories: dayAlcoholTotals.calories,
+      protein: dayTotals.protein,
+      carbs: dayTotals.carbs,
+      fat: dayTotals.fat,
+    });
+  });
+
+  return {
+    keys,
+    series,
+    total,
+    alcoholTotal,
+    average: {
+      calories: Math.round(total.calories / keys.length),
+      protein: Math.round(total.protein / keys.length),
+      carbs: Math.round(total.carbs / keys.length),
+      fat: Math.round(total.fat / keys.length),
+    },
+    alcoholAverage: {
+      calories: Math.round(alcoholTotal.calories / keys.length),
+      protein: Math.round(alcoholTotal.protein / keys.length),
+      carbs: Math.round(alcoholTotal.carbs / keys.length),
+      fat: Math.round(alcoholTotal.fat / keys.length),
+    },
+  };
+}
+
+function formatShortDateLabel(dateKey) {
+  const date = parseDateKeyToDate(dateKey);
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  return `${month}/${day}`;
+}
+
+function renderMealHistoryChart(seriesInput) {
+  if (!mealHistoryChart) return;
+  mealHistoryChart.innerHTML = '';
+
+  const series = Array.isArray(seriesInput) ? seriesInput : [];
+  const maxCalories = series.reduce((max, item) => Math.max(max, item.calories, item.alcoholCalories), 0);
+  if (mealHistoryChartEmpty) {
+    mealHistoryChartEmpty.hidden = maxCalories > 0;
+  }
+  if (series.length === 0) return;
+
+  const svgNs = 'http://www.w3.org/2000/svg';
+  const width = 640;
+  const height = 200;
+  const leftPad = 14;
+  const rightPad = 14;
+  const topPad = 12;
+  const bottomPad = 24;
+  const plotWidth = width - leftPad - rightPad;
+  const plotHeight = height - topPad - bottomPad;
+  const denominator = maxCalories > 0 ? maxCalories : 1;
+
+  const calcX = (index) => {
+    if (series.length === 1) return leftPad + (plotWidth / 2);
+    return leftPad + ((plotWidth * index) / (series.length - 1));
+  };
+  const calcY = (value) => topPad + (plotHeight - ((Math.max(0, value) / denominator) * plotHeight));
+
+  const totalPoints = series.map((item, index) => `${calcX(index)},${calcY(item.calories)}`).join(' ');
+  const alcoholPoints = series.map((item, index) => `${calcX(index)},${calcY(item.alcoholCalories)}`).join(' ');
+
+  const svg = document.createElementNS(svgNs, 'svg');
+  svg.setAttribute('class', 'meal-history-line-chart');
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  svg.setAttribute('preserveAspectRatio', 'none');
+
+  const baseline = document.createElementNS(svgNs, 'line');
+  baseline.setAttribute('x1', String(leftPad));
+  baseline.setAttribute('y1', String(topPad + plotHeight));
+  baseline.setAttribute('x2', String(leftPad + plotWidth));
+  baseline.setAttribute('y2', String(topPad + plotHeight));
+  baseline.setAttribute('class', 'meal-history-line-axis');
+  svg.appendChild(baseline);
+
+  const totalLine = document.createElementNS(svgNs, 'polyline');
+  totalLine.setAttribute('points', totalPoints);
+  totalLine.setAttribute('class', 'meal-history-line-total');
+  svg.appendChild(totalLine);
+
+  const alcoholLine = document.createElementNS(svgNs, 'polyline');
+  alcoholLine.setAttribute('points', alcoholPoints);
+  alcoholLine.setAttribute('class', 'meal-history-line-alcohol');
+  svg.appendChild(alcoholLine);
+
+  series.forEach((item, index) => {
+    const x = calcX(index);
+
+    const totalDot = document.createElementNS(svgNs, 'circle');
+    totalDot.setAttribute('cx', String(x));
+    totalDot.setAttribute('cy', String(calcY(item.calories)));
+    totalDot.setAttribute('r', '2.6');
+    totalDot.setAttribute('class', 'meal-history-line-dot-total');
+    svg.appendChild(totalDot);
+
+    const alcoholDot = document.createElementNS(svgNs, 'circle');
+    alcoholDot.setAttribute('cx', String(x));
+    alcoholDot.setAttribute('cy', String(calcY(item.alcoholCalories)));
+    alcoholDot.setAttribute('r', '2.6');
+    alcoholDot.setAttribute('class', 'meal-history-line-dot-alcohol');
+    svg.appendChild(alcoholDot);
+  });
+
+  mealHistoryChart.appendChild(svg);
+
+  const labels = document.createElement('div');
+  labels.className = 'meal-history-line-labels';
+  series.forEach((item) => {
+    const label = document.createElement('span');
+    label.className = 'meal-history-line-label';
+    label.title = `${item.dateKey}: ${item.calories} kcal total, ${item.alcoholCalories} kcal alcohol`;
+    label.textContent = item.label;
+    labels.appendChild(label);
+  });
+  mealHistoryChart.appendChild(labels);
+
+  const legend = document.createElement('div');
+  legend.className = 'meal-history-line-legend';
+  legend.innerHTML = '<span class="meal-history-legend-item"><span class="meal-history-legend-swatch meal-history-legend-swatch-total"></span>Total calories</span><span class="meal-history-legend-item"><span class="meal-history-legend-swatch meal-history-legend-swatch-alcohol"></span>Alcohol calories</span>';
+  mealHistoryChart.appendChild(legend);
+
+  const peak = document.createElement('p');
+  peak.className = 'meal-history-chart-note';
+  peak.textContent = `Peak day: ${maxCalories} kcal`;
+  mealHistoryChart.appendChild(peak);
 }
 
 function getMacroProgressSnapshot() {
@@ -1822,12 +2117,15 @@ function addMealEntryToToday(payload) {
     return false;
   }
 
+  const category = String(payload?.category || '').toLowerCase().trim();
+
   state.mealLog = Array.isArray(state.mealLog) ? state.mealLog : [];
   state.mealLog.push({
     id: createId('meal'),
     date: getTodayKey(),
     meal: sanitizeMealText(payload?.meal, 'Meal'),
     food: sanitizeMealText(payload?.food, 'Food'),
+    category: category === 'alcohol' ? 'alcohol' : 'food',
     calories: normalized.calories,
     protein: normalized.protein,
     carbs: normalized.carbs,
@@ -2073,6 +2371,9 @@ function updateDailyMeta() {
     }
   }
   renderMealEntries();
+  if (mealHistoryDateInput) {
+    renderMealHistoryTab();
+  }
   renderMoodPicker();
 }
 
@@ -2866,13 +3167,415 @@ function render() {
   maybeNotifyAllTasksComplete(progress.allRequiredDone);
 }
 
+function getMealDialogTitleLabel() {
+  const selectedType = String(mealTypeInput?.value || 'food').trim();
+  if (selectedType === 'alcohol') {
+    return 'Alcohol';
+  }
+
+  const custom = String(mealTypeCustomInput?.value || '').trim();
+  return custom || 'Meal';
+}
+
+function getDraftMealTotals() {
+  return draftMealItems.reduce((totals, item) => {
+    totals.calories += Number(item?.calories) || 0;
+    totals.protein += Number(item?.protein) || 0;
+    totals.carbs += Number(item?.carbs) || 0;
+    totals.fat += Number(item?.fat) || 0;
+    return totals;
+  }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+}
+
+function setMealDialogStatus(message) {
+  if (mealDialogStatus) {
+    mealDialogStatus.textContent = message;
+  }
+}
+
+function setMealFoodSearchStatus(message) {
+  if (mealFoodSearchStatus) {
+    mealFoodSearchStatus.textContent = message;
+  }
+}
+
+function applyFoodToMealFields(item) {
+  if (!item || typeof item !== 'object') return;
+  if (mealItemNameInput) mealItemNameInput.value = sanitizeMealText(item.name, 'Food');
+  if (mealItemCaloriesInput) mealItemCaloriesInput.value = String(Math.max(0, Math.round(Number(item.calories) || 0)) || '');
+  if (mealItemProteinInput) mealItemProteinInput.value = String(Math.max(0, Math.round(Number(item.protein) || 0)) || '');
+  if (mealItemCarbsInput) mealItemCarbsInput.value = String(Math.max(0, Math.round(Number(item.carbs) || 0)) || '');
+  if (mealItemFatInput) mealItemFatInput.value = String(Math.max(0, Math.round(Number(item.fat) || 0)) || '');
+}
+
+function renderMealFoodSearchResults(items) {
+  if (!mealFoodSearchResults) return;
+  mealFoodSearchResults.innerHTML = '';
+
+  if (!Array.isArray(items) || items.length === 0) {
+    const empty = document.createElement('li');
+    empty.className = 'empty-state';
+    empty.textContent = 'No matching foods found.';
+    mealFoodSearchResults.appendChild(empty);
+    return;
+  }
+
+  items.forEach((item) => {
+    const row = document.createElement('li');
+    row.className = 'food-lookup-result-item';
+
+    const title = document.createElement('div');
+    title.className = 'food-lookup-result-title';
+    title.textContent = String(item?.name || 'Unknown food');
+
+    const detail = document.createElement('div');
+    detail.className = 'food-lookup-result-detail';
+    detail.textContent = `${item.source || 'Built-in'} • ${item.calories || 0} kcal • P ${item.protein || 0}g • C ${item.carbs || 0}g • F ${item.fat || 0}g`;
+
+    const actions = document.createElement('div');
+    actions.className = 'meal-list-buttons';
+
+    const useButton = document.createElement('button');
+    useButton.type = 'button';
+    useButton.className = 'secondary-button';
+    useButton.textContent = 'Use';
+    useButton.addEventListener('click', () => {
+      applyFoodToMealFields(item);
+      setMealFoodSearchStatus(`${item.name} loaded. Click Add item to meal.`);
+    });
+
+    const addButton = document.createElement('button');
+    addButton.type = 'button';
+    addButton.className = 'secondary-button';
+    addButton.textContent = 'Add';
+    addButton.addEventListener('click', () => {
+      applyFoodToMealFields(item);
+      addItemToDraftMeal();
+    });
+
+    actions.appendChild(useButton);
+    actions.appendChild(addButton);
+    row.appendChild(title);
+    row.appendChild(detail);
+    row.appendChild(actions);
+    mealFoodSearchResults.appendChild(row);
+  });
+}
+
+function runMealFoodSearch() {
+  const query = String(mealFoodSearchInput?.value || '').trim();
+  if (!query) {
+    setMealFoodSearchStatus('Search a food to add it quickly.');
+    if (mealFoodSearchResults) {
+      mealFoodSearchResults.innerHTML = '';
+    }
+    return;
+  }
+
+  const items = searchLocalFoods(query, FOOD_SEARCH_LIMIT);
+  setMealFoodSearchStatus(items.length > 0 ? 'Choose a result to use or add.' : 'No matching foods found.');
+  renderMealFoodSearchResults(items);
+}
+
+function renderDraftMealItems() {
+  const totals = getDraftMealTotals();
+  if (mealDraftTotals) {
+    mealDraftTotals.textContent = `Total: ${totals.calories} kcal • P ${totals.protein}g • C ${totals.carbs}g • F ${totals.fat}g`;
+  }
+
+  if (!mealDraftItemsList) return;
+  mealDraftItemsList.innerHTML = '';
+
+  if (draftMealItems.length === 0) {
+    const empty = document.createElement('li');
+    empty.className = 'empty-state';
+    empty.textContent = 'No items yet.';
+    mealDraftItemsList.appendChild(empty);
+    return;
+  }
+
+  draftMealItems.forEach((item, index) => {
+    const row = document.createElement('li');
+    row.className = 'social-item';
+
+    const textWrap = document.createElement('div');
+
+    const title = document.createElement('div');
+    title.className = 'social-item-text';
+    title.textContent = item.label;
+
+    const meta = document.createElement('div');
+    meta.className = 'meal-list-meta';
+    meta.textContent = `${item.calories} kcal • P ${item.protein}g • C ${item.carbs}g • F ${item.fat}g`;
+
+    textWrap.appendChild(title);
+    textWrap.appendChild(meta);
+
+    const actions = document.createElement('div');
+    actions.className = 'meal-list-buttons';
+
+    const removeButton = document.createElement('button');
+    removeButton.type = 'button';
+    removeButton.className = 'secondary-button';
+    removeButton.textContent = 'Remove';
+    removeButton.addEventListener('click', () => {
+      draftMealItems.splice(index, 1);
+      renderDraftMealItems();
+      setMealDialogStatus('Meal item removed.');
+    });
+
+    actions.appendChild(removeButton);
+    row.appendChild(textWrap);
+    row.appendChild(actions);
+    mealDraftItemsList.appendChild(row);
+  });
+}
+
+function renderMealHistoryTab() {
+  const selectedDateKey = String(mealHistoryDateInput?.value || getTodayKey()).trim() || getTodayKey();
+  const dayEntries = getMealEntriesByDateKey(selectedDateKey);
+  const dayTotals = getMacroTotalsFromEntries(dayEntries);
+  const rangeStats = getMacroStatsForWindow(selectedDateKey, activeMealHistoryRangeDays);
+
+  if (mealHistoryDailySummary) {
+    mealHistoryDailySummary.textContent = `Daily total: ${dayTotals.calories} kcal • P ${dayTotals.protein}g • C ${dayTotals.carbs}g • F ${dayTotals.fat}g`;
+  }
+
+  if (mealHistorySevenDaySummary) {
+    mealHistorySevenDaySummary.textContent = `${activeMealHistoryRangeDays}-day total: ${rangeStats.total.calories} kcal • P ${rangeStats.total.protein}g • C ${rangeStats.total.carbs}g • F ${rangeStats.total.fat}g | Avg/day: ${rangeStats.average.calories} kcal • P ${rangeStats.average.protein}g • C ${rangeStats.average.carbs}g • F ${rangeStats.average.fat}g`;
+  }
+
+  if (mealHistoryAlcoholSummary) {
+    mealHistoryAlcoholSummary.textContent = `Alcohol total: ${rangeStats.alcoholTotal.calories} kcal • P ${rangeStats.alcoholTotal.protein}g • C ${rangeStats.alcoholTotal.carbs}g • F ${rangeStats.alcoholTotal.fat}g | Avg/day: ${rangeStats.alcoholAverage.calories} kcal • P ${rangeStats.alcoholAverage.protein}g • C ${rangeStats.alcoholAverage.carbs}g • F ${rangeStats.alcoholAverage.fat}g`;
+  }
+
+  mealHistoryRangeChipButtons.forEach((button) => {
+    const days = Number(button.dataset.days) || 7;
+    button.classList.toggle('active', days === activeMealHistoryRangeDays);
+  });
+
+  renderMealHistoryChart(rangeStats.series);
+
+  if (!mealHistoryItemsList) return;
+  mealHistoryItemsList.innerHTML = '';
+
+  if (dayEntries.length === 0) {
+    const empty = document.createElement('li');
+    empty.className = 'empty-state';
+    empty.textContent = 'No items logged for this day.';
+    mealHistoryItemsList.appendChild(empty);
+    return;
+  }
+
+  const groupedByMeal = dayEntries.reduce((accumulator, entry) => {
+    const mealName = sanitizeMealText(entry?.meal, 'Meal');
+    if (!accumulator[mealName]) {
+      accumulator[mealName] = [];
+    }
+    accumulator[mealName].push(entry);
+    return accumulator;
+  }, {});
+
+  Object.entries(groupedByMeal).forEach(([mealName, entries]) => {
+    const row = document.createElement('li');
+    row.className = 'social-item meal-history-group';
+
+    const wrap = document.createElement('div');
+    wrap.className = 'meal-history-group-wrap';
+
+    const heading = document.createElement('div');
+    heading.className = 'social-item-text';
+    heading.textContent = mealName;
+    wrap.appendChild(heading);
+
+    entries.forEach((entry) => {
+      const itemLine = document.createElement('div');
+      itemLine.className = 'meal-list-meta';
+      if (isAlcoholMealEntry(entry)) {
+        itemLine.classList.add('meal-history-item-alcohol');
+      }
+      itemLine.textContent = `${entry.food} - ${entry.calories} kcal • P ${entry.protein}g • C ${entry.carbs}g • F ${entry.fat}g`;
+      wrap.appendChild(itemLine);
+    });
+
+    const mealTotals = getMacroTotalsFromEntries(entries);
+    const mealTotalLine = document.createElement('div');
+    mealTotalLine.className = 'meal-history-meal-total';
+    mealTotalLine.textContent = `Meal total: ${mealTotals.calories} kcal • P ${mealTotals.protein}g • C ${mealTotals.carbs}g • F ${mealTotals.fat}g`;
+    wrap.appendChild(mealTotalLine);
+
+    row.appendChild(wrap);
+    mealHistoryItemsList.appendChild(row);
+  });
+}
+
+function setActiveMealDialogTab(tabName) {
+  activeMealDialogTab = tabName === 'history' ? 'history' : 'builder';
+  const onBuilder = activeMealDialogTab === 'builder';
+
+  if (mealBuilderPanel) mealBuilderPanel.hidden = !onBuilder;
+  if (mealHistoryPanel) mealHistoryPanel.hidden = onBuilder;
+  if (saveMealButton) saveMealButton.hidden = !onBuilder;
+
+  if (mealBuilderTabButton) {
+    mealBuilderTabButton.classList.toggle('active', onBuilder);
+    mealBuilderTabButton.setAttribute('aria-selected', onBuilder ? 'true' : 'false');
+  }
+  if (mealHistoryTabButton) {
+    mealHistoryTabButton.classList.toggle('active', !onBuilder);
+    mealHistoryTabButton.setAttribute('aria-selected', onBuilder ? 'false' : 'true');
+  }
+
+  if (!onBuilder) {
+    renderMealHistoryTab();
+  }
+}
+
+function updateMealBuilderVisibility() {
+  const selectedMealType = String(mealTypeInput?.value || 'food').trim();
+  const isAlcoholMode = selectedMealType === 'alcohol';
+
+  if (mealTypeCustomField) {
+    mealTypeCustomField.hidden = isAlcoholMode;
+  }
+
+  if (mealFoodFields) {
+    mealFoodFields.hidden = isAlcoholMode;
+  }
+  if (mealAlcoholFields) {
+    mealAlcoholFields.hidden = !isAlcoholMode;
+  }
+}
+
+function resetMealItemFields() {
+  if (mealItemNameInput) mealItemNameInput.value = '';
+  if (mealItemCaloriesInput) mealItemCaloriesInput.value = '';
+  if (mealItemProteinInput) mealItemProteinInput.value = '';
+  if (mealItemCarbsInput) mealItemCarbsInput.value = '';
+  if (mealItemFatInput) mealItemFatInput.value = '';
+  if (saveMealItemToMyFoodsCheckbox) saveMealItemToMyFoodsCheckbox.checked = false;
+  if (alcoholDrinkTypeInput) alcoholDrinkTypeInput.value = 'beer';
+  if (alcoholDrinkCountInput) alcoholDrinkCountInput.value = '1';
+}
+
 function resetMealDialogFields() {
-  if (mealNameInput) mealNameInput.value = '';
-  if (mealFoodInput) mealFoodInput.value = '';
-  if (mealCaloriesInput) mealCaloriesInput.value = '';
-  if (mealProteinInput) mealProteinInput.value = '';
-  if (mealCarbsInput) mealCarbsInput.value = '';
-  if (mealFatInput) mealFatInput.value = '';
+  draftMealItems = [];
+  if (mealTypeInput) mealTypeInput.value = 'food';
+  if (mealTypeCustomInput) mealTypeCustomInput.value = '';
+  if (mealHistoryDateInput) mealHistoryDateInput.value = getTodayKey();
+  if (mealFoodSearchInput) mealFoodSearchInput.value = '';
+  resetMealItemFields();
+  updateMealBuilderVisibility();
+  setActiveMealDialogTab('builder');
+  setMealDialogStatus('Add at least one item to build your meal total.');
+  setMealFoodSearchStatus('Search a food to add it quickly.');
+  if (mealFoodSearchResults) {
+    mealFoodSearchResults.innerHTML = '';
+  }
+  renderDraftMealItems();
+  renderMealHistoryTab();
+}
+
+function createFoodDraftItem() {
+  const label = sanitizeMealText(mealItemNameInput?.value, 'Food item');
+  const macros = {
+    calories: parseMacroInputValue(mealItemCaloriesInput?.value),
+    protein: parseMacroInputValue(mealItemProteinInput?.value),
+    carbs: parseMacroInputValue(mealItemCarbsInput?.value),
+    fat: parseMacroInputValue(mealItemFatInput?.value),
+  };
+
+  const hasAny = Object.values(macros).some((value) => value > 0);
+  if (!hasAny) {
+    return null;
+  }
+
+  return { label, category: 'food', ...macros };
+}
+
+function createAlcoholDraftItem() {
+  const drinkKey = String(alcoholDrinkTypeInput?.value || 'beer').trim();
+  const drinkTemplate = ALCOHOL_MACROS_PER_DRINK[drinkKey] || ALCOHOL_MACROS_PER_DRINK.beer;
+  const count = Math.max(1, Math.round(parseMacroInputValue(alcoholDrinkCountInput?.value) || 1));
+
+  return {
+    label: `${drinkTemplate.label} x${count}`,
+    category: 'alcohol',
+    calories: drinkTemplate.calories * count,
+    protein: drinkTemplate.protein * count,
+    carbs: drinkTemplate.carbs * count,
+    fat: drinkTemplate.fat * count,
+  };
+}
+
+function addItemToDraftMeal() {
+  const selectedMealType = String(mealTypeInput?.value || 'food').trim();
+  const nextItem = selectedMealType === 'alcohol' ? createAlcoholDraftItem() : createFoodDraftItem();
+
+  if (!nextItem) {
+    setMealDialogStatus('Enter at least one macro value for this food item.');
+    return;
+  }
+
+  draftMealItems.push(nextItem);
+  let savedToMyFoods = false;
+  if (selectedMealType === 'food' && saveMealItemToMyFoodsCheckbox?.checked) {
+    savedToMyFoods = upsertSavedFood({
+      name: nextItem.label,
+      calories: nextItem.calories,
+      protein: nextItem.protein,
+      carbs: nextItem.carbs,
+      fat: nextItem.fat,
+    });
+    if (savedToMyFoods) {
+      saveState();
+    }
+  }
+
+  resetMealItemFields();
+  updateMealBuilderVisibility();
+  renderDraftMealItems();
+  setMealDialogStatus(savedToMyFoods
+    ? `${nextItem.label} added to this meal and saved to My Foods.`
+    : `${nextItem.label} added to this meal.`);
+}
+
+function saveDraftMealToLog() {
+  if (draftMealItems.length === 0) {
+    setMealDialogStatus('Add at least one food or drink item before saving the meal.');
+    return false;
+  }
+
+  const mealLabel = getMealDialogTitleLabel();
+  seedMealLogFromCurrentMacrosIfNeeded();
+
+  let addedCount = 0;
+  draftMealItems.forEach((item) => {
+    const wasAdded = addMealEntryToToday({
+      meal: mealLabel,
+      food: item.label,
+      category: item.category,
+      calories: item.calories,
+      protein: item.protein,
+      carbs: item.carbs,
+      fat: item.fat,
+    });
+    if (wasAdded) addedCount += 1;
+  });
+
+  if (addedCount === 0) {
+    setMealDialogStatus('No valid macros were found to save.');
+    return false;
+  }
+
+  recalculateTodayMacrosFromMeals();
+  setMacroFieldValues(createEmptyMacroValues());
+  updateHistoryFromCompletion();
+  saveState();
+  updateDailyMeta();
+  render();
+  launchConfetti();
+  return true;
 }
 
 function resetChecklistDialogFields() {
@@ -2912,6 +3615,10 @@ function closeAddChecklistItemDialog() {
 
 function openAddMealDialog() {
   if (!addMealDialog) return;
+  if (mealHistoryDateInput && !mealHistoryDateInput.value) {
+    mealHistoryDateInput.value = getTodayKey();
+  }
+  renderMealHistoryTab();
   if (typeof addMealDialog.showModal === 'function') {
     addMealDialog.showModal();
   } else {
@@ -3009,6 +3716,46 @@ cancelMealButton?.addEventListener('click', () => {
   closeAddMealDialog();
 });
 
+mealTypeInput?.addEventListener('change', () => {
+  updateMealBuilderVisibility();
+});
+
+mealFoodSearchInput?.addEventListener('input', () => {
+  runMealFoodSearch();
+});
+
+mealFoodSearchInput?.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    runMealFoodSearch();
+  }
+});
+
+mealBuilderTabButton?.addEventListener('click', () => {
+  setActiveMealDialogTab('builder');
+});
+
+mealHistoryTabButton?.addEventListener('click', () => {
+  setActiveMealDialogTab('history');
+});
+
+mealHistoryDateInput?.addEventListener('change', () => {
+  renderMealHistoryTab();
+});
+
+mealHistoryRangeChipButtons.forEach((button) => {
+  button.addEventListener('click', () => {
+    const nextDays = Number(button.dataset.days);
+    if (!Number.isFinite(nextDays) || nextDays <= 0) return;
+    activeMealHistoryRangeDays = nextDays;
+    renderMealHistoryTab();
+  });
+});
+
+addMealItemButton?.addEventListener('click', () => {
+  addItemToDraftMeal();
+});
+
 cancelChecklistItemButton?.addEventListener('click', () => {
   closeAddChecklistItemDialog();
 });
@@ -3051,23 +3798,9 @@ addChecklistForm?.addEventListener('submit', (event) => {
 addMealForm?.addEventListener('submit', (event) => {
   event.preventDefault();
 
-  const macros = {
-    calories: parseMacroInputValue(mealCaloriesInput?.value),
-    protein: parseMacroInputValue(mealProteinInput?.value),
-    carbs: parseMacroInputValue(mealCarbsInput?.value),
-    fat: parseMacroInputValue(mealFatInput?.value),
-  };
-
-  const saved = saveMacroEntry({
-    meal: String(mealNameInput?.value || '').trim() || 'Meal',
-    food: String(mealFoodInput?.value || '').trim() || 'Food',
-    macros,
-  });
+  const saved = saveDraftMealToLog();
 
   if (!saved) {
-    if (macroProgressStatus) {
-      macroProgressStatus.textContent = 'Enter at least one macro value before saving a meal.';
-    }
     return;
   }
 
