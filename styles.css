@@ -347,21 +347,108 @@ button:hover {
 }
 
 .macro-grid button {
-  grid-column: 1 / -1;
+  grid-column: span 1;
 }
 
-.fatsecret-row {
+.goal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.goal-grid input {
+  border: 1px solid rgba(135, 91, 44, 0.24);
+  border-radius: 12px;
+  padding: 8px 10px;
+  background: #fff;
+}
+
+.meal-list-meta {
+  font-size: 0.8rem;
+  color: #7b5433;
+}
+
+.meal-list-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.meal-dialog {
+  border: 1px solid rgba(135, 91, 44, 0.3);
+  border-radius: 16px;
+  padding: 0;
+  max-width: 440px;
+  width: calc(100% - 24px);
+}
+
+.meal-dialog::backdrop {
+  background: rgba(17, 24, 39, 0.45);
+}
+
+.meal-dialog-content {
+  margin: 0;
+  padding: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.meal-dialog-content h3 {
+  margin: 0;
+}
+
+#addChecklistDialog .meal-dialog-content {
+  gap: 12px;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.floating-meal-button {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  z-index: 70;
+  border: 1px solid rgba(135, 91, 44, 0.35);
+  box-shadow: 0 12px 20px rgba(17, 24, 39, 0.25);
+  background: linear-gradient(150deg, #fff3d9, #f5d49c);
+  color: #6b3d1f;
+  padding: 0;
+}
+
+.floating-meal-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.floating-meal-button:hover {
+  filter: brightness(0.98);
+  transform: translateY(-1px);
+}
+
+.floating-meal-button:active {
+  transform: translateY(0);
+}
+
+.food-lookup-row {
   align-items: flex-start;
 }
 
-.fatsecret-inline {
+.food-lookup-inline {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr auto auto;
   gap: 8px;
   flex: 1;
 }
 
-.fatsecret-result-item {
+.food-lookup-result-item {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 8px;
@@ -372,12 +459,12 @@ button:hover {
   background: rgba(255, 255, 255, 0.78);
 }
 
-.fatsecret-result-title {
+.food-lookup-result-title {
   font-weight: 700;
   color: #4b2d1c;
 }
 
-.fatsecret-result-detail {
+.food-lookup-result-detail {
   font-size: 0.82rem;
   color: #7b5433;
 }
@@ -462,6 +549,22 @@ button:hover {
   gap: 6px;
   margin-left: auto;
   color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.progress-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.progress-input {
+  width: 68px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 8px;
   font-size: 0.8rem;
 }
 
@@ -935,8 +1038,23 @@ button:hover {
     grid-template-columns: 1fr;
   }
 
-  .fatsecret-inline {
+  .food-lookup-inline {
     grid-template-columns: 1fr;
+  }
+
+  .goal-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .macro-grid button {
+    grid-column: 1 / -1;
+  }
+
+  .floating-meal-button {
+    right: 14px;
+    bottom: 14px;
+    width: 54px;
+    height: 54px;
   }
 
   .priority-control {

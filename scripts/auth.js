@@ -28,6 +28,10 @@ const emailInput = document.getElementById('emailInput');
 const passwordInput = document.getElementById('passwordInput');
 const displayNameInput = document.getElementById('displayNameInput');
 const photoUrlInput = document.getElementById('photoUrlInput');
+const signupGoalCaloriesInput = document.getElementById('signupGoalCaloriesInput');
+const signupGoalProteinInput = document.getElementById('signupGoalProteinInput');
+const signupGoalCarbsInput = document.getElementById('signupGoalCarbsInput');
+const signupGoalFatInput = document.getElementById('signupGoalFatInput');
 const submitButton = document.getElementById('submitButton');
 const authStatusEl = document.getElementById('authStatus');
 const assessmentArchetypeEl = document.getElementById('assessmentArchetype');
@@ -100,6 +104,23 @@ function normalizePhotoUrl(url) {
   } catch {
     return '';
   }
+}
+
+function parseGoalInputValue(value) {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) return '';
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed)) return '';
+  return Math.max(0, Math.round(parsed));
+}
+
+function getSignupMacroGoals() {
+  return {
+    calories: parseGoalInputValue(signupGoalCaloriesInput?.value),
+    protein: parseGoalInputValue(signupGoalProteinInput?.value),
+    carbs: parseGoalInputValue(signupGoalCarbsInput?.value),
+    fat: parseGoalInputValue(signupGoalFatInput?.value),
+  };
 }
 
 async function uploadSignupPhotoIfPossible(authAdapter, selectedFile, displayName) {
@@ -497,6 +518,7 @@ authForm?.addEventListener('submit', async (event) => {
   const email = emailInput.value.trim();
   const password = passwordInput.value;
   const startingProfile = mode === 'signup' ? calculateStartingProfile(getAssessmentAnswers()) : null;
+  const signupMacroGoals = mode === 'signup' ? getSignupMacroGoals() : null;
   const displayName = String(displayNameInput?.value || '').trim();
   const photoUrl = normalizePhotoUrl(photoUrlInput?.value || '');
   const selectedPhotoFile = photoFileInput?.files?.[0] || null;
@@ -509,6 +531,12 @@ authForm?.addEventListener('submit', async (event) => {
       photoUrl,
       startingProfile: {
         ...startingProfile,
+        macroGoals: {
+          calories: signupMacroGoals?.calories === '' ? '' : String(signupMacroGoals.calories),
+          protein: signupMacroGoals?.protein === '' ? '' : String(signupMacroGoals.protein),
+          carbs: signupMacroGoals?.carbs === '' ? '' : String(signupMacroGoals.carbs),
+          fat: signupMacroGoals?.fat === '' ? '' : String(signupMacroGoals.fat),
+        },
         createdAt: new Date().toISOString(),
       },
     })

@@ -11,7 +11,7 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <link rel="manifest" href="/manifest.json" />
-    <link rel="stylesheet" href="/styles.css?v=13" />
+    <link rel="stylesheet" href="/styles.css?v=16" />
     <title>Habit Check</title>
   </head>
   <body>
@@ -119,25 +119,6 @@
               <button id="weightSaveButton" type="button">Save</button>
             </div>
           </div>
-          <div class="daily-meta-row daily-meta-macro-row">
-            <span class="daily-meta-label">Macros</span>
-            <div class="macro-grid">
-              <input id="macroCaloriesInput" class="daily-meta-input" type="number" inputmode="numeric" min="0" placeholder="Calories" aria-label="Calories" />
-              <input id="macroProteinInput" class="daily-meta-input" type="number" inputmode="numeric" min="0" placeholder="Protein (g)" aria-label="Protein grams" />
-              <input id="macroCarbsInput" class="daily-meta-input" type="number" inputmode="numeric" min="0" placeholder="Carbs (g)" aria-label="Carbs grams" />
-              <input id="macroFatInput" class="daily-meta-input" type="number" inputmode="numeric" min="0" placeholder="Fat (g)" aria-label="Fat grams" />
-              <button id="macroSaveButton" type="button">Save macros</button>
-            </div>
-          </div>
-          <div class="daily-meta-row fatsecret-row">
-            <label class="daily-meta-label" for="fatsecretQueryInput">Food lookup</label>
-            <div class="fatsecret-inline">
-              <input id="fatsecretQueryInput" class="daily-meta-input" type="text" placeholder="Search food via FatSecret" />
-              <button id="fatsecretSearchButton" type="button" class="secondary-button">Search</button>
-            </div>
-          </div>
-          <p id="fatsecretSearchStatus" class="status-text">Food search requires backend setup.</p>
-          <ul id="fatsecretSearchResults" class="social-list"></ul>
         </div>
         <ul id="taskList" class="task-list"></ul>
       </section>
@@ -153,8 +134,54 @@
       <div id="checklistSections" class="checklist-sections"></div>
     </main>
 
-    <script type="module" src="/scripts/setup-supabase.js?v=8"></script>
+    <button id="addMealButton" type="button" class="floating-meal-button" aria-label="Add meal">
+      <span class="floating-meal-icon" aria-hidden="true">&#x1F372;</span>
+    </button>
+
+    <dialog id="addMealDialog" class="meal-dialog">
+      <form id="addMealForm" method="dialog" class="meal-dialog-content">
+        <h3>Add meal</h3>
+        <label class="social-field">
+          <span>Meal</span>
+          <input id="mealNameInput" type="text" maxlength="40" placeholder="Breakfast, lunch, dinner, snack" required />
+        </label>
+        <label class="social-field">
+          <span>Food</span>
+          <input id="mealFoodInput" type="text" maxlength="80" placeholder="Food name" required />
+        </label>
+        <div class="goal-grid">
+          <input id="mealCaloriesInput" type="number" inputmode="numeric" min="0" placeholder="Calories" aria-label="Meal calories" />
+          <input id="mealProteinInput" type="number" inputmode="numeric" min="0" placeholder="Protein (g)" aria-label="Meal protein" />
+          <input id="mealCarbsInput" type="number" inputmode="numeric" min="0" placeholder="Carbs (g)" aria-label="Meal carbs" />
+          <input id="mealFatInput" type="number" inputmode="numeric" min="0" placeholder="Fat (g)" aria-label="Meal fat" />
+        </div>
+        <div class="dialog-actions">
+          <button id="saveMealButton" type="submit">Save meal</button>
+          <button id="cancelMealButton" type="button" class="secondary-button">Cancel</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="addChecklistDialog" class="meal-dialog">
+      <form id="addChecklistForm" method="dialog" class="meal-dialog-content">
+        <h3 id="addChecklistDialogTitle">Add item</h3>
+        <label class="social-field">
+          <span>Item</span>
+          <input id="checklistItemTextInput" type="text" maxlength="120" placeholder="Describe your goal item" required />
+        </label>
+        <label id="checklistProgressField" class="social-field" hidden>
+          <span>Progress (%)</span>
+          <input id="checklistProgressInput" type="number" inputmode="numeric" min="0" max="100" step="1" value="0" />
+        </label>
+        <div class="dialog-actions">
+          <button id="saveChecklistItemButton" type="submit">Add item</button>
+          <button id="cancelChecklistItemButton" type="button" class="secondary-button">Cancel</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="/scripts/setup-supabase.js?v=10"></script>
     <script type="module" src="/scripts/top-avatar.js?v=2"></script>
-    <script type="module" src="/app.js?v=21"></script>
+    <script type="module" src="/app.js?v=31"></script>
   </body>
 </html>
