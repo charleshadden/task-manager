@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#4f46e5" />
-    <link rel="stylesheet" href="/styles.css?v=13" />
+    <link rel="stylesheet" href="/styles.css?v=14" />
     <title>Sign Up | Habit Check</title>
   </head>
   <body data-auth-mode="signup">
@@ -59,6 +59,17 @@
                 <input id="photoFileInput" type="file" accept="image/*" />
                 <small class="auth-help">Optional. If selected, the image uploads right after account creation when sign-in is active.</small>
               </label>
+
+              <div class="auth-field">
+                <span>Daily macro goals</span>
+                <div class="goal-grid">
+                  <input id="signupGoalCaloriesInput" type="number" inputmode="numeric" min="0" placeholder="Calories" aria-label="Daily calorie goal" />
+                  <input id="signupGoalProteinInput" type="number" inputmode="numeric" min="0" placeholder="Protein (g)" aria-label="Daily protein goal" />
+                  <input id="signupGoalCarbsInput" type="number" inputmode="numeric" min="0" placeholder="Carbs (g)" aria-label="Daily carbs goal" />
+                  <input id="signupGoalFatInput" type="number" inputmode="numeric" min="0" placeholder="Fat (g)" aria-label="Daily fat goal" />
+                </div>
+                <small class="auth-help">These are saved at account creation and can be edited later in Profile.</small>
+              </div>
             </div>
           </section>
 
@@ -262,8 +273,8 @@
       </section>
     </main>
 
-    <script type="module" src="/scripts/setup-supabase.js?v=7"></script>
+    <script type="module" src="/scripts/setup-supabase.js?v=10"></script>
     <script type="module" src="/scripts/top-avatar.js?v=2"></script>
-    <script type="module" src="/scripts/auth.js?v=8"></script>
+    <script type="module" src="/scripts/auth.js?v=9"></script>
   </body>
 </html>

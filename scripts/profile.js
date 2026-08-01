@@ -19,6 +19,10 @@ const profilePhotoFileInput = document.getElementById('profilePhotoFileInput');
 const profileDropZone = document.getElementById('profileDropZone');
 const uploadPhotoButton = document.getElementById('uploadPhotoButton');
 const profileBioInput = document.getElementById('profileBioInput');
+const profileGoalCaloriesInput = document.getElementById('profileGoalCaloriesInput');
+const profileGoalProteinInput = document.getElementById('profileGoalProteinInput');
+const profileGoalCarbsInput = document.getElementById('profileGoalCarbsInput');
+const profileGoalFatInput = document.getElementById('profileGoalFatInput');
 const saveProfileButton = document.getElementById('saveProfileButton');
 const profileStatus = document.getElementById('profileStatus');
 const profilePhotoPreview = document.getElementById('profilePhotoPreview');
@@ -119,6 +123,23 @@ function persistLocalState(user, state) {
 
 function safeNumber(value) {
   return Number.isFinite(Number(value)) ? Number(value) : 0;
+}
+
+function createEmptyMacroGoalValues() {
+  return {
+    calories: '',
+    protein: '',
+    carbs: '',
+    fat: '',
+  };
+}
+
+function parseGoalInputValue(value) {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) return '';
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed)) return '';
+  return Math.max(0, Math.round(parsed));
 }
 
 function getXpForNextLevel(currentLevel) {
@@ -229,6 +250,23 @@ function renderProfile() {
 
   if (profileBioInput && document.activeElement !== profileBioInput) {
     profileBioInput.value = String(cachedState.profileBio || '');
+  }
+
+  const goals = cachedState?.macroGoals && typeof cachedState.macroGoals === 'object'
+    ? { ...createEmptyMacroGoalValues(), ...cachedState.macroGoals }
+    : createEmptyMacroGoalValues();
+
+  if (profileGoalCaloriesInput && document.activeElement !== profileGoalCaloriesInput) {
+    profileGoalCaloriesInput.value = goals.calories || '';
+  }
+  if (profileGoalProteinInput && document.activeElement !== profileGoalProteinInput) {
+    profileGoalProteinInput.value = goals.protein || '';
+  }
+  if (profileGoalCarbsInput && document.activeElement !== profileGoalCarbsInput) {
+    profileGoalCarbsInput.value = goals.carbs || '';
+  }
+  if (profileGoalFatInput && document.activeElement !== profileGoalFatInput) {
+    profileGoalFatInput.value = goals.fat || '';
   }
 
   if (profilePhotoPreview && profilePhotoFallback) {
@@ -353,6 +391,12 @@ async function saveProfileForm(photoUrlOverride = null) {
   const displayName = String(profileDisplayNameInput?.value || '').trim();
   const photoUrl = normalizePhotoUrl(photoUrlOverride || profilePhotoUrlInput?.value || '');
   const bio = String(profileBioInput?.value || '').trim();
+  const macroGoals = {
+    calories: parseGoalInputValue(profileGoalCaloriesInput?.value),
+    protein: parseGoalInputValue(profileGoalProteinInput?.value),
+    carbs: parseGoalInputValue(profileGoalCarbsInput?.value),
+    fat: parseGoalInputValue(profileGoalFatInput?.value),
+  };
 
   if (saveProfileButton) {
     saveProfileButton.disabled = true;
@@ -379,6 +423,12 @@ async function saveProfileForm(photoUrlOverride = null) {
 
   cachedState = cachedState && typeof cachedState === 'object' ? cachedState : {};
   cachedState.profileBio = bio;
+  cachedState.macroGoals = {
+    calories: macroGoals.calories === '' ? '' : String(macroGoals.calories),
+    protein: macroGoals.protein === '' ? '' : String(macroGoals.protein),
+    carbs: macroGoals.carbs === '' ? '' : String(macroGoals.carbs),
+    fat: macroGoals.fat === '' ? '' : String(macroGoals.fat),
+  };
   cachedState.updatedAt = new Date().toISOString();
   persistLocalState(currentUser, cachedState);
 

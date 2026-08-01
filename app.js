@@ -17,12 +17,39 @@ const DAILY_STREAK_BONUS_XP = 1000;
 const ATTRIBUTE_NAMES = ['Strength', 'Dexterity', 'Wisdom', 'Intelligence', 'Charisma', 'Constitution'];
 const DEFAULT_PLAYER_CLASS = 'Fighter';
 const DEFAULT_ARCHETYPE = 'Champion';
-const FATSECRET_SEARCH_LIMIT = 8;
+const FOOD_SEARCH_LIMIT = 8;
+
+const LOCAL_FOOD_LIBRARY = [
+  { name: 'Banana (1 medium)', calories: 105, protein: 1, carbs: 27, fat: 0 },
+  { name: 'Apple (1 medium)', calories: 95, protein: 0, carbs: 25, fat: 0 },
+  { name: 'Blueberries (1 cup)', calories: 84, protein: 1, carbs: 21, fat: 0 },
+  { name: 'Egg (1 large)', calories: 72, protein: 6, carbs: 0, fat: 5 },
+  { name: 'Egg Whites (100g)', calories: 52, protein: 11, carbs: 1, fat: 0 },
+  { name: 'Chicken Breast, cooked (100g)', calories: 165, protein: 31, carbs: 0, fat: 4 },
+  { name: 'Ground Beef 90/10, cooked (100g)', calories: 217, protein: 26, carbs: 0, fat: 12 },
+  { name: 'Salmon, cooked (100g)', calories: 206, protein: 22, carbs: 0, fat: 12 },
+  { name: 'Greek Yogurt, nonfat (170g)', calories: 100, protein: 17, carbs: 6, fat: 0 },
+  { name: 'Cottage Cheese 2% (1/2 cup)', calories: 90, protein: 12, carbs: 4, fat: 2 },
+  { name: 'White Rice, cooked (1 cup)', calories: 205, protein: 4, carbs: 45, fat: 0 },
+  { name: 'Brown Rice, cooked (1 cup)', calories: 216, protein: 5, carbs: 45, fat: 2 },
+  { name: 'Oats, dry (1/2 cup)', calories: 150, protein: 5, carbs: 27, fat: 3 },
+  { name: 'Bread, whole wheat (1 slice)', calories: 80, protein: 4, carbs: 14, fat: 1 },
+  { name: 'Sweet Potato, baked (1 medium)', calories: 112, protein: 2, carbs: 26, fat: 0 },
+  { name: 'Potato, baked (1 medium)', calories: 161, protein: 4, carbs: 37, fat: 0 },
+  { name: 'Avocado (1/2 medium)', calories: 120, protein: 2, carbs: 6, fat: 11 },
+  { name: 'Almonds (28g)', calories: 164, protein: 6, carbs: 6, fat: 14 },
+  { name: 'Peanut Butter (1 tbsp)', calories: 95, protein: 4, carbs: 3, fat: 8 },
+  { name: 'Olive Oil (1 tbsp)', calories: 119, protein: 0, carbs: 0, fat: 14 },
+  { name: 'Broccoli, cooked (1 cup)', calories: 55, protein: 4, carbs: 11, fat: 1 },
+  { name: 'Spinach, raw (2 cups)', calories: 14, protein: 2, carbs: 2, fat: 0 },
+  { name: 'Black Beans, cooked (1/2 cup)', calories: 114, protein: 8, carbs: 20, fat: 0 },
+  { name: 'Lentils, cooked (1/2 cup)', calories: 115, protein: 9, carbs: 20, fat: 0 },
+  { name: 'Protein Shake (1 scoop)', calories: 120, protein: 24, carbs: 3, fat: 1 },
+];
 
 const defaultUnconditionals = [
   { id: 'steps', text: 'Get your steps', done: false, attribute: 'Constitution' },
-  { id: 'weight', text: 'Log weight', done: false, attribute: 'Constitution' },
-  { id: 'mood', text: 'Record mood', done: false, attribute: 'Wisdom' },
+  { id: 'hydration', text: 'Hydration milestone', done: false, attribute: 'Constitution' },
   { id: 'dogs', text: 'Give the dogs attention', done: false, attribute: 'Wisdom' },
   { id: 'affirmation', text: 'Give words of affirmation', done: false, attribute: 'Charisma' },
 ];
@@ -57,16 +84,6 @@ const defaultConditionals = [
   { id: 'service', text: 'Acts of service', done: false, attribute: 'Charisma', baseXp: 16 },
   { id: 'app-building', text: 'App building', done: false, attribute: 'Intelligence', baseXp: 24 },
   { id: 'diet', text: 'Diet adherence', done: false, attribute: 'Constitution', baseXp: 20 },
-  {
-    id: 'hydration',
-    text: 'Hydration milestone',
-    done: false,
-    attribute: 'Constitution',
-    baseXp: 14,
-    characteristics: [
-      { key: 'cups', label: 'Cups', type: 'number', unit: 'cups', min: 0 },
-    ],
-  },
   { id: 'sleep', text: 'Sleep quality', done: false, attribute: 'Constitution', baseXp: 18 },
   { id: 'mobility', text: 'Mobility/stretching', done: false, attribute: 'Dexterity', baseXp: 16 },
   { id: 'agility', text: 'Agility/footwork', done: false, attribute: 'Dexterity', baseXp: 18 },
@@ -97,6 +114,15 @@ function createDefaultBaseAttributes() {
 }
 
 function createEmptyMacroValues() {
+  return {
+    calories: '',
+    protein: '',
+    carbs: '',
+    fat: '',
+  };
+}
+
+function createEmptyMacroGoalValues() {
   return {
     calories: '',
     protein: '',
@@ -160,8 +186,10 @@ function createDefaultState() {
     stepsLog: [],
     weightLog: [],
     currentWeight: '',
+    mealLog: [],
     macroLog: [],
     currentMacros: createEmptyMacroValues(),
+    macroGoals: createEmptyMacroGoalValues(),
     updatedAt: new Date().toISOString(),
   };
 }
@@ -177,6 +205,7 @@ let currentUser = null;
 let state = createDefaultState();
 let reminderTimer = null;
 let midnightTimer = null;
+let communityFoodLibrary = [];
 const socialHub = {
   profile: { userId: '', displayName: '', photoUrl: '' },
   following: [],
@@ -250,9 +279,36 @@ function ensureStateShape() {
     ? state.unconditionals.map(normalizeUnconditionalItem)
     : [...defaultUnconditionals].map(normalizeUnconditionalItem);
 
+  // Remove legacy daily tasks now covered by daily meta rows.
+  state.unconditionals = state.unconditionals.filter((task) => task?.id !== 'weight' && task?.id !== 'mood');
+
+  defaultUnconditionals.forEach((defaultTask) => {
+    if (!defaultTask?.id) return;
+    const exists = state.unconditionals.some((task) => task?.id === defaultTask.id);
+    if (!exists) {
+      state.unconditionals.push(normalizeUnconditionalItem(defaultTask));
+    }
+  });
+
   state.conditionals = Array.isArray(state.conditionals) && state.conditionals.length > 0
     ? state.conditionals.map(normalizeConditionalItem)
     : [...defaultConditionals].map(normalizeConditionalItem);
+
+  const legacyHydration = state.conditionals.find((task) => task?.id === 'hydration') || null;
+  state.conditionals = state.conditionals.filter((task) => task?.id !== 'hydration');
+
+  const hydrationDailyIndex = state.unconditionals.findIndex((task) => task?.id === 'hydration');
+  if (legacyHydration && hydrationDailyIndex >= 0) {
+    const legacyCups = getConditionalCharacteristicNumber(legacyHydration, 'cups');
+    const existingCups = Number(state.unconditionals[hydrationDailyIndex].hydrationCups) || 0;
+    state.unconditionals[hydrationDailyIndex].hydrationCups = Math.max(0, Math.min(10, Math.round(Math.max(existingCups, legacyCups))));
+
+    if (!state.unconditionals[hydrationDailyIndex].done && legacyHydration.done) {
+      state.unconditionals[hydrationDailyIndex].done = true;
+      state.unconditionals[hydrationDailyIndex].completedDate = legacyHydration.completedDate || state.unconditionals[hydrationDailyIndex].completedDate;
+      state.unconditionals[hydrationDailyIndex].lastAwardedXp = Number(legacyHydration.lastAwardedXp) || state.unconditionals[hydrationDailyIndex].lastAwardedXp;
+    }
+  }
 
   state.xp = Number.isFinite(Number(state.xp)) ? Number(state.xp) : 0;
   state.attributes = state.attributes && typeof state.attributes === 'object'
@@ -293,10 +349,20 @@ function ensureStateShape() {
   state.stepsLog = Array.isArray(state.stepsLog) ? state.stepsLog : [];
   state.weightLog = Array.isArray(state.weightLog) ? state.weightLog : [];
   state.currentWeight = state.currentWeight || '';
+  state.mealLog = Array.isArray(state.mealLog)
+    ? state.mealLog.filter((entry) => entry && typeof entry === 'object' && entry.id && entry.date)
+    : [];
   state.macroLog = Array.isArray(state.macroLog) ? state.macroLog : [];
   state.currentMacros = state.currentMacros && typeof state.currentMacros === 'object'
     ? { ...createEmptyMacroValues(), ...state.currentMacros }
     : createEmptyMacroValues();
+  state.macroGoals = state.macroGoals && typeof state.macroGoals === 'object'
+    ? { ...createEmptyMacroGoalValues(), ...state.macroGoals }
+    : createEmptyMacroGoalValues();
+
+  if (getTodayMealEntries().length > 0) {
+    recalculateTodayMacrosFromMeals();
+  }
 
   ATTRIBUTE_NAMES.forEach((attributeName) => {
     const rawXp = Math.max(0, Number(state.attributes?.[attributeName]) || 0);
@@ -341,10 +407,30 @@ const macroProteinInput = document.getElementById('macroProteinInput');
 const macroCarbsInput = document.getElementById('macroCarbsInput');
 const macroFatInput = document.getElementById('macroFatInput');
 const macroSaveButton = document.getElementById('macroSaveButton');
-const fatsecretQueryInput = document.getElementById('fatsecretQueryInput');
-const fatsecretSearchButton = document.getElementById('fatsecretSearchButton');
-const fatsecretSearchStatus = document.getElementById('fatsecretSearchStatus');
-const fatsecretSearchResults = document.getElementById('fatsecretSearchResults');
+const addMealButton = document.getElementById('addMealButton');
+const macroProgressStatus = document.getElementById('macroProgressStatus');
+const mealEntriesList = document.getElementById('mealEntriesList');
+const foodLookupQueryInput = document.getElementById('foodLookupQueryInput');
+const foodLookupSearchButton = document.getElementById('foodLookupSearchButton');
+const addSharedFoodButton = document.getElementById('addSharedFoodButton');
+const foodLookupSearchStatus = document.getElementById('foodLookupSearchStatus');
+const foodLookupSearchResults = document.getElementById('foodLookupSearchResults');
+const addMealDialog = document.getElementById('addMealDialog');
+const addMealForm = document.getElementById('addMealForm');
+const mealNameInput = document.getElementById('mealNameInput');
+const mealFoodInput = document.getElementById('mealFoodInput');
+const mealCaloriesInput = document.getElementById('mealCaloriesInput');
+const mealProteinInput = document.getElementById('mealProteinInput');
+const mealCarbsInput = document.getElementById('mealCarbsInput');
+const mealFatInput = document.getElementById('mealFatInput');
+const cancelMealButton = document.getElementById('cancelMealButton');
+const addChecklistDialog = document.getElementById('addChecklistDialog');
+const addChecklistForm = document.getElementById('addChecklistForm');
+const addChecklistDialogTitle = document.getElementById('addChecklistDialogTitle');
+const checklistItemTextInput = document.getElementById('checklistItemTextInput');
+const checklistProgressField = document.getElementById('checklistProgressField');
+const checklistProgressInput = document.getElementById('checklistProgressInput');
+const cancelChecklistItemButton = document.getElementById('cancelChecklistItemButton');
 const profilePhotoPreviewEl = document.getElementById('profilePhotoPreview');
 const profilePhotoFallbackEl = document.getElementById('profilePhotoFallback');
 const profileDisplayNameInput = document.getElementById('profileDisplayNameInput');
@@ -369,6 +455,8 @@ const moodOptions = [
   { value: '😔', label: 'Low' },
   { value: '😤', label: 'Stressed' },
 ];
+
+let activeChecklistSectionKey = '';
 
 function getSyncAdapter() {
   return window.supabaseSync || null;
@@ -806,9 +894,15 @@ function getFixedAttribute(text, sectionKey = '') {
 }
 
 function normalizeChecklistItem(item, sectionKey = '') {
+  const rawProgress = Number(item?.progress);
+  const progress = Number.isFinite(rawProgress)
+    ? Math.max(0, Math.min(100, Math.round(rawProgress)))
+    : (Boolean(item?.done) ? 100 : 0);
+
   return {
     text: item?.text || '',
-    done: Boolean(item?.done),
+    done: Boolean(item?.done) || progress >= 100,
+    progress,
     priority: normalizePriority(item?.priority),
     attribute: getFixedAttribute(item?.text, sectionKey),
   };
@@ -822,6 +916,7 @@ function normalizeUnconditionalItem(item) {
     attribute: getFixedAttribute(item?.text),
     completedDate: item?.completedDate || (item?.done ? getTodayKey() : ''),
     stepCount: Number.isFinite(Number(item?.stepCount)) ? Number(item?.stepCount) : '',
+    hydrationCups: Number.isFinite(Number(item?.hydrationCups)) ? Math.max(0, Math.min(10, Math.round(Number(item?.hydrationCups)))) : 0,
     lastAwardedXp: Number.isFinite(Number(item?.lastAwardedXp)) ? Number(item?.lastAwardedXp) : 0,
   };
 }
@@ -945,10 +1040,14 @@ function loadLocalState(user = currentUser) {
       stepsLog: Array.isArray(parsed.stepsLog) ? parsed.stepsLog : [],
       weightLog: Array.isArray(parsed.weightLog) ? parsed.weightLog : [],
       currentWeight: parsed.currentWeight || '',
+      mealLog: Array.isArray(parsed.mealLog) ? parsed.mealLog : [],
       macroLog: Array.isArray(parsed.macroLog) ? parsed.macroLog : [],
       currentMacros: parsed.currentMacros && typeof parsed.currentMacros === 'object'
         ? { ...createEmptyMacroValues(), ...parsed.currentMacros }
         : createEmptyMacroValues(),
+      macroGoals: parsed.macroGoals && typeof parsed.macroGoals === 'object'
+        ? { ...createEmptyMacroGoalValues(), ...parsed.macroGoals }
+        : createEmptyMacroGoalValues(),
       updatedAt: parsed.updatedAt || new Date().toISOString(),
     };
   } catch {
@@ -1048,6 +1147,7 @@ function ensureTodayState() {
     done: false,
     completedDate: '',
     stepCount: task.id === 'steps' ? '' : task.stepCount,
+    hydrationCups: task.id === 'hydration' ? 0 : task.hydrationCups,
     lastAwardedXp: 0,
     attribute: getFixedAttribute(task.text),
   }));
@@ -1063,7 +1163,8 @@ function ensureTodayState() {
 
 function updateHistoryFromCompletion() {
   const today = getTodayKey();
-  const allDone = state.unconditionals.length > 0 && state.unconditionals.every((task) => task.done);
+  const progress = getDailyQuestProgressSnapshot();
+  const allDone = progress.allRequiredDone;
   state.streakBonusesAwarded = Array.isArray(state.streakBonusesAwarded) ? state.streakBonusesAwarded : [];
 
   if (allDone) {
@@ -1088,6 +1189,42 @@ function updateHistoryFromCompletion() {
     }
     state.history = state.history.filter((day) => day !== today);
   }
+}
+
+function isDailyTaskComplete(task) {
+  if (!task || typeof task !== 'object') {
+    return false;
+  }
+
+  if (task.id === 'hydration') {
+    return (Number(task.hydrationCups) || 0) >= 10;
+  }
+
+  return Boolean(task.done);
+}
+
+function getDailyQuestProgressSnapshot() {
+  const dailyMetaRequirementCount = 3;
+  const dailyTaskCount = state.unconditionals.length;
+  const completedDailyTasks = state.unconditionals.filter((task) => isDailyTaskComplete(task)).length;
+  const macroProgress = getMacroProgressSnapshot();
+  const macrosDone = macroProgress.hasGoals ? macroProgress.goalMet : macroProgress.hasAnyIntake;
+  const requiredDailyCount = dailyTaskCount + dailyMetaRequirementCount;
+  const completedRequiredCount = completedDailyTasks + (state.mood ? 1 : 0) + (state.currentWeight ? 1 : 0) + (macrosDone ? 1 : 0);
+  const dailyPercent = requiredDailyCount ? Math.round((completedRequiredCount / requiredDailyCount) * 100) : 0;
+  const allRequiredDone = requiredDailyCount > 0 && completedRequiredCount >= requiredDailyCount;
+  const remainingRequiredCount = Math.max(0, requiredDailyCount - completedRequiredCount);
+
+  return {
+    dailyTaskCount,
+    completedDailyTasks,
+    requiredDailyCount,
+    completedRequiredCount,
+    dailyPercent,
+    allRequiredDone,
+    remainingRequiredCount,
+    macrosDone,
+  };
 }
 
 function upsertMoodLog(value) {
@@ -1261,6 +1398,34 @@ function applyStartingProfileFromUserMetadata() {
     }
   });
 
+  const currentGoals = state.macroGoals && typeof state.macroGoals === 'object'
+    ? state.macroGoals
+    : createEmptyMacroGoalValues();
+  const hasExistingGoals = Object.values(currentGoals).some((value) => Number(value) > 0);
+
+  const profileMacroGoals = startingProfile.macroGoals && typeof startingProfile.macroGoals === 'object'
+    ? startingProfile.macroGoals
+    : null;
+
+  if (!hasExistingGoals && profileMacroGoals) {
+    const nextGoals = {
+      calories: parseMacroInputValue(profileMacroGoals.calories),
+      protein: parseMacroInputValue(profileMacroGoals.protein),
+      carbs: parseMacroInputValue(profileMacroGoals.carbs),
+      fat: parseMacroInputValue(profileMacroGoals.fat),
+    };
+    const hasAnyCreationGoal = Object.values(nextGoals).some((value) => value !== '');
+    if (hasAnyCreationGoal) {
+      state.macroGoals = {
+        calories: nextGoals.calories === '' ? '' : String(nextGoals.calories),
+        protein: nextGoals.protein === '' ? '' : String(nextGoals.protein),
+        carbs: nextGoals.carbs === '' ? '' : String(nextGoals.carbs),
+        fat: nextGoals.fat === '' ? '' : String(nextGoals.fat),
+      };
+      changed = true;
+    }
+  }
+
   if (!state.assessmentApplied) {
     state.assessmentApplied = true;
     changed = true;
@@ -1366,7 +1531,8 @@ function scheduleReminders() {
     const remaining = state.unconditionals.filter((task) => !task.done).length;
     const moodPending = !state.mood;
     const weightPending = !state.currentWeight;
-    const macrosPending = !state.currentMacros?.calories && !state.currentMacros?.protein && !state.currentMacros?.carbs && !state.currentMacros?.fat;
+    const macroProgress = getMacroProgressSnapshot();
+    const macrosPending = macroProgress.hasGoals ? !macroProgress.goalMet : !macroProgress.hasAnyIntake;
     const metaRemaining = (moodPending ? 1 : 0) + (weightPending ? 1 : 0) + (macrosPending ? 1 : 0);
     const totalRemaining = remaining + metaRemaining;
 
@@ -1387,6 +1553,7 @@ function scheduleReminders() {
       done: false,
       completedDate: '',
       stepCount: task.id === 'steps' ? '' : task.stepCount,
+      hydrationCups: task.id === 'hydration' ? 0 : task.hydrationCups,
       lastAwardedXp: 0,
       attribute: getFixedAttribute(task.text),
     }));
@@ -1454,6 +1621,7 @@ function renderMoodPicker() {
       const nextMood = state.mood === option.value ? '' : option.value;
       state.mood = nextMood;
       upsertMoodLog(nextMood);
+      updateHistoryFromCompletion();
       saveState();
       render();
       if (nextMood) {
@@ -1464,10 +1632,55 @@ function renderMoodPicker() {
   });
 }
 
-function setFatSecretStatus(message) {
-  if (fatsecretSearchStatus) {
-    fatsecretSearchStatus.textContent = message;
+function setFoodLookupStatus(message) {
+  if (foodLookupSearchStatus) {
+    foodLookupSearchStatus.textContent = message;
   }
+}
+
+function normalizeFoodName(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function searchLocalFoods(query, limit = FOOD_SEARCH_LIMIT) {
+  const normalized = String(query || '').trim().toLowerCase();
+  if (!normalized) return [];
+
+  const communityFoods = Array.isArray(communityFoodLibrary) ? communityFoodLibrary : [];
+  const combinedLibrary = [
+    ...LOCAL_FOOD_LIBRARY.map((item) => ({ ...item, source: 'Built-in' })),
+    ...communityFoods.map((item) => ({ ...item, source: item.source || 'Community' })),
+  ];
+
+  const seenNames = new Set();
+  const uniqueLibrary = combinedLibrary.filter((item) => {
+    const key = normalizeFoodName(item.name);
+    if (!key || seenNames.has(key)) return false;
+    seenNames.add(key);
+    return true;
+  });
+
+  const tokens = normalized.split(/\s+/).filter(Boolean);
+  const scored = uniqueLibrary.map((item) => {
+    const name = String(item.name || '').toLowerCase();
+    let score = 0;
+
+    if (name === normalized) score += 100;
+    if (name.startsWith(normalized)) score += 40;
+    if (name.includes(normalized)) score += 20;
+
+    tokens.forEach((token) => {
+      if (name.includes(token)) score += 10;
+    });
+
+    return { ...item, _score: score };
+  })
+    .filter((item) => item._score > 0)
+    .sort((a, b) => b._score - a._score || a.name.localeCompare(b.name))
+    .slice(0, Math.max(1, Math.min(20, Number(limit) || FOOD_SEARCH_LIMIT)))
+    .map(({ _score, ...item }) => item);
+
+  return scored;
 }
 
 function setMacroFieldValues(values) {
@@ -1486,9 +1699,115 @@ function parseMacroInputValue(value) {
   return Math.max(0, Math.round(parsed));
 }
 
-function upsertMacroLog(entry) {
+function getMacroValuesAsNumbers(values) {
+  return {
+    calories: Number.isFinite(Number(values?.calories)) ? Math.max(0, Math.round(Number(values.calories))) : 0,
+    protein: Number.isFinite(Number(values?.protein)) ? Math.max(0, Math.round(Number(values.protein))) : 0,
+    carbs: Number.isFinite(Number(values?.carbs)) ? Math.max(0, Math.round(Number(values.carbs))) : 0,
+    fat: Number.isFinite(Number(values?.fat)) ? Math.max(0, Math.round(Number(values.fat))) : 0,
+  };
+}
+
+function getTodayMealEntries() {
   const today = getTodayKey();
+  return (state.mealLog || []).filter((entry) => entry?.date === today);
+}
+
+function getMacroProgressSnapshot() {
+  const consumed = getMacroValuesAsNumbers(state.currentMacros || createEmptyMacroValues());
+  const goals = getMacroValuesAsNumbers(state.macroGoals || createEmptyMacroGoalValues());
+  const hasGoals = Object.values(goals).some((value) => value > 0);
+  const hasCalorieGoal = goals.calories > 0;
+  const hasAnyIntake = Object.values(consumed).some((value) => value > 0);
+  const remaining = {
+    calories: goals.calories > 0 ? Math.max(0, goals.calories - consumed.calories) : 0,
+    protein: goals.protein > 0 ? Math.max(0, goals.protein - consumed.protein) : 0,
+    carbs: goals.carbs > 0 ? Math.max(0, goals.carbs - consumed.carbs) : 0,
+    fat: goals.fat > 0 ? Math.max(0, goals.fat - consumed.fat) : 0,
+  };
+  const goalMet = hasCalorieGoal
+    ? consumed.calories >= goals.calories
+    : hasGoals && Object.entries(goals).every(([key, value]) => value === 0 || consumed[key] >= value);
+  const goalOverages = Object.entries(goals)
+    .filter(([, value]) => value > 0)
+    .map(([key, value]) => Math.max(0, consumed[key] - value));
+  const maxOverage = goalOverages.length > 0 ? Math.max(...goalOverages) : 0;
+  const overByHundred = hasGoals && (hasCalorieGoal
+    ? (consumed.calories - goals.calories) >= 100
+    : maxOverage >= 100);
+
+  return {
+    consumed,
+    goals,
+    hasGoals,
+    hasAnyIntake,
+    remaining,
+    goalMet,
+    overByHundred,
+  };
+}
+
+function sanitizeMealText(value, fallback) {
+  const normalized = String(value || '').trim();
+  return normalized ? normalized.slice(0, 80) : fallback;
+}
+
+function seedMealLogFromCurrentMacrosIfNeeded() {
+  const todayEntries = getTodayMealEntries();
+  if (todayEntries.length > 0) return;
+
+  const current = getMacroValuesAsNumbers(state.currentMacros || createEmptyMacroValues());
+  const hasAnyCurrent = Object.values(current).some((value) => value > 0);
+  if (!hasAnyCurrent) return;
+
+  state.mealLog = Array.isArray(state.mealLog) ? state.mealLog : [];
+  state.mealLog.push({
+    id: createId('meal'),
+    date: getTodayKey(),
+    meal: 'Imported',
+    food: 'Existing total',
+    calories: current.calories,
+    protein: current.protein,
+    carbs: current.carbs,
+    fat: current.fat,
+  });
+}
+
+function recalculateTodayMacrosFromMeals() {
+  const totals = getTodayMealEntries().reduce((accumulator, entry) => {
+    accumulator.calories += Number(entry?.calories) || 0;
+    accumulator.protein += Number(entry?.protein) || 0;
+    accumulator.carbs += Number(entry?.carbs) || 0;
+    accumulator.fat += Number(entry?.fat) || 0;
+    return accumulator;
+  }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+
+  state.currentMacros = {
+    calories: totals.calories > 0 ? String(totals.calories) : '',
+    protein: totals.protein > 0 ? String(totals.protein) : '',
+    carbs: totals.carbs > 0 ? String(totals.carbs) : '',
+    fat: totals.fat > 0 ? String(totals.fat) : '',
+  };
+
+  const today = getTodayKey();
+  const hasAnyTotal = Object.values(totals).some((value) => value > 0);
   const existingIndex = state.macroLog.findIndex((item) => item.date === today);
+
+  if (!hasAnyTotal) {
+    if (existingIndex >= 0) {
+      state.macroLog.splice(existingIndex, 1);
+    }
+    return;
+  }
+
+  const entry = {
+    date: today,
+    calories: totals.calories,
+    protein: totals.protein,
+    carbs: totals.carbs,
+    fat: totals.fat,
+  };
+
   if (existingIndex >= 0) {
     state.macroLog[existingIndex] = entry;
   } else {
@@ -1496,61 +1815,91 @@ function upsertMacroLog(entry) {
   }
 }
 
-function saveMacroEntry() {
-  const nextMacros = {
+function addMealEntryToToday(payload) {
+  const normalized = getMacroValuesAsNumbers(payload);
+  const hasAnyValue = Object.values(normalized).some((value) => value > 0);
+  if (!hasAnyValue) {
+    return false;
+  }
+
+  state.mealLog = Array.isArray(state.mealLog) ? state.mealLog : [];
+  state.mealLog.push({
+    id: createId('meal'),
+    date: getTodayKey(),
+    meal: sanitizeMealText(payload?.meal, 'Meal'),
+    food: sanitizeMealText(payload?.food, 'Food'),
+    calories: normalized.calories,
+    protein: normalized.protein,
+    carbs: normalized.carbs,
+    fat: normalized.fat,
+  });
+
+  return true;
+}
+
+function clearTodayMacroTracking() {
+  const today = getTodayKey();
+  state.mealLog = (state.mealLog || []).filter((entry) => entry?.date !== today);
+  recalculateTodayMacrosFromMeals();
+}
+
+function saveMacroEntry(options = {}) {
+  const macrosFromForm = {
     calories: parseMacroInputValue(macroCaloriesInput?.value),
     protein: parseMacroInputValue(macroProteinInput?.value),
     carbs: parseMacroInputValue(macroCarbsInput?.value),
     fat: parseMacroInputValue(macroFatInput?.value),
   };
 
-  const hasAnyValue = Object.values(nextMacros).some((value) => value !== '');
-  if (!hasAnyValue) return;
+  const macros = options.macros && typeof options.macros === 'object'
+    ? options.macros
+    : macrosFromForm;
 
-  state.currentMacros = {
-    calories: nextMacros.calories === '' ? '' : String(nextMacros.calories),
-    protein: nextMacros.protein === '' ? '' : String(nextMacros.protein),
-    carbs: nextMacros.carbs === '' ? '' : String(nextMacros.carbs),
-    fat: nextMacros.fat === '' ? '' : String(nextMacros.fat),
-  };
-
-  upsertMacroLog({
-    date: getTodayKey(),
-    calories: nextMacros.calories === '' ? 0 : nextMacros.calories,
-    protein: nextMacros.protein === '' ? 0 : nextMacros.protein,
-    carbs: nextMacros.carbs === '' ? 0 : nextMacros.carbs,
-    fat: nextMacros.fat === '' ? 0 : nextMacros.fat,
+  seedMealLogFromCurrentMacrosIfNeeded();
+  const wasAdded = addMealEntryToToday({
+    meal: options.meal || 'Quick add',
+    food: options.food || 'Manual entry',
+    calories: macros.calories,
+    protein: macros.protein,
+    carbs: macros.carbs,
+    fat: macros.fat,
   });
 
+  if (!wasAdded) return false;
+
+  recalculateTodayMacrosFromMeals();
+  setMacroFieldValues(createEmptyMacroValues());
+  updateHistoryFromCompletion();
   saveState();
   updateDailyMeta();
   render();
   launchConfetti();
+  return true;
 }
 
-function renderFatSecretSearchResults(items) {
-  if (!fatsecretSearchResults) return;
-  fatsecretSearchResults.innerHTML = '';
+function renderFoodLookupSearchResults(items) {
+  if (!foodLookupSearchResults) return;
+  foodLookupSearchResults.innerHTML = '';
 
   if (!Array.isArray(items) || items.length === 0) {
     const empty = document.createElement('li');
     empty.className = 'empty-state';
     empty.textContent = 'No matching foods found.';
-    fatsecretSearchResults.appendChild(empty);
+    foodLookupSearchResults.appendChild(empty);
     return;
   }
 
   items.forEach((item) => {
     const row = document.createElement('li');
-    row.className = 'fatsecret-result-item';
+    row.className = 'food-lookup-result-item';
 
     const title = document.createElement('div');
-    title.className = 'fatsecret-result-title';
+    title.className = 'food-lookup-result-title';
     title.textContent = String(item?.name || 'Unknown food');
 
     const detail = document.createElement('div');
-    detail.className = 'fatsecret-result-detail';
-    detail.textContent = `${item.calories || 0} kcal • P ${item.protein || 0}g • C ${item.carbs || 0}g • F ${item.fat || 0}g`;
+    detail.className = 'food-lookup-result-detail';
+    detail.textContent = `${item.source || 'Built-in'} • ${item.calories || 0} kcal • P ${item.protein || 0}g • C ${item.carbs || 0}g • F ${item.fat || 0}g`;
 
     const useButton = document.createElement('button');
     useButton.type = 'button';
@@ -1570,47 +1919,160 @@ function renderFatSecretSearchResults(items) {
         carbs: next.carbs === '' ? '' : String(next.carbs),
         fat: next.fat === '' ? '' : String(next.fat),
       });
-      saveMacroEntry();
+      saveMacroEntry({
+        meal: 'Food lookup',
+        food: String(item?.name || 'Library food'),
+      });
     });
 
     row.appendChild(title);
     row.appendChild(detail);
     row.appendChild(useButton);
-    fatsecretSearchResults.appendChild(row);
+    foodLookupSearchResults.appendChild(row);
   });
 }
 
-async function runFatSecretFoodSearch() {
-  const query = String(fatsecretQueryInput?.value || '').trim();
+async function runFoodLookupSearch() {
+  const query = String(foodLookupQueryInput?.value || '').trim();
   if (!query) {
-    setFatSecretStatus('Type a food name to search.');
+    setFoodLookupStatus('Type a food name to search.');
+    return;
+  }
+
+  foodLookupSearchButton.disabled = true;
+  setFoodLookupStatus('Searching foods...');
+  const items = searchLocalFoods(query, FOOD_SEARCH_LIMIT);
+  foodLookupSearchButton.disabled = false;
+
+  setFoodLookupStatus(items.length > 0 ? 'Food results loaded from local library.' : 'No matching foods found in local library.');
+  renderFoodLookupSearchResults(items);
+}
+
+async function hydrateSharedFoodLibrary() {
+  const syncAdapter = getSyncAdapter();
+  if (!syncAdapter?.enabled || typeof syncAdapter.listSharedFoods !== 'function') {
+    return;
+  }
+
+  const result = await syncAdapter.listSharedFoods('', 250);
+  if (!result.ok) {
+    setFoodLookupStatus(`Using built-in foods only. ${result.message}`);
+    return;
+  }
+
+  communityFoodLibrary = Array.isArray(result.items) ? result.items : [];
+  if (communityFoodLibrary.length > 0) {
+    setFoodLookupStatus(`Loaded ${communityFoodLibrary.length} community foods.`);
+  }
+}
+
+async function addCurrentFoodToSharedLibrary() {
+  const name = String(foodLookupQueryInput?.value || '').trim();
+  if (!name) {
+    setFoodLookupStatus('Enter a food name, then click Add for everyone.');
+    return;
+  }
+
+  const latestMeal = getTodayMealEntries().at(-1) || null;
+
+  const food = {
+    name,
+    calories: parseMacroInputValue(macroCaloriesInput?.value) || Number(latestMeal?.calories) || 0,
+    protein: parseMacroInputValue(macroProteinInput?.value) || Number(latestMeal?.protein) || 0,
+    carbs: parseMacroInputValue(macroCarbsInput?.value) || Number(latestMeal?.carbs) || 0,
+    fat: parseMacroInputValue(macroFatInput?.value) || Number(latestMeal?.fat) || 0,
+  };
+
+  const hasAnyMacro = [food.calories, food.protein, food.carbs, food.fat].some((value) => Number(value) > 0);
+  if (!hasAnyMacro) {
+    setFoodLookupStatus('Add a meal from the bowl first so macros can be shared for this food.');
     return;
   }
 
   const syncAdapter = getSyncAdapter();
-  if (!syncAdapter?.enabled || typeof syncAdapter.searchFatSecretFoods !== 'function') {
-    setFatSecretStatus('FatSecret search is not configured. Add the backend endpoint described in README.');
+  if (!syncAdapter?.enabled || typeof syncAdapter.addSharedFood !== 'function') {
+    setFoodLookupStatus('Shared food database is not configured yet.');
     return;
   }
 
-  fatsecretSearchButton.disabled = true;
-  setFatSecretStatus('Searching foods...');
-  const result = await syncAdapter.searchFatSecretFoods(query, FATSECRET_SEARCH_LIMIT);
-  fatsecretSearchButton.disabled = false;
+  addSharedFoodButton.disabled = true;
+  setFoodLookupStatus('Adding food to community library...');
+  const result = await syncAdapter.addSharedFood(food);
+  addSharedFoodButton.disabled = false;
 
   if (!result.ok) {
-    setFatSecretStatus(result.message);
-    renderFatSecretSearchResults([]);
+    setFoodLookupStatus(result.message);
     return;
   }
 
-  setFatSecretStatus(result.message);
-  renderFatSecretSearchResults(result.items);
+  const item = result.item ? { ...result.item, source: 'Community' } : { ...food, source: 'Community' };
+  communityFoodLibrary = [item, ...communityFoodLibrary.filter((existing) => normalizeFoodName(existing.name) !== normalizeFoodName(item.name))];
+  setFoodLookupStatus('Food added for everyone.');
+}
+
+function renderMealEntries() {
+  if (!mealEntriesList) return;
+
+  const todayMeals = getTodayMealEntries();
+  mealEntriesList.innerHTML = '';
+
+  if (todayMeals.length === 0) {
+    const empty = document.createElement('li');
+    empty.className = 'empty-state';
+    empty.textContent = 'No meals logged yet today.';
+    mealEntriesList.appendChild(empty);
+    return;
+  }
+
+  todayMeals.forEach((entry) => {
+    const row = document.createElement('li');
+    row.className = 'social-item';
+
+    const text = document.createElement('div');
+    text.className = 'social-item-text';
+    text.textContent = `${entry.meal}: ${entry.food}`;
+
+    const meta = document.createElement('div');
+    meta.className = 'meal-list-meta';
+    meta.textContent = `${entry.calories} kcal • P ${entry.protein}g • C ${entry.carbs}g • F ${entry.fat}g`;
+
+    const textWrap = document.createElement('div');
+    textWrap.appendChild(text);
+    textWrap.appendChild(meta);
+
+    const actions = document.createElement('div');
+    actions.className = 'meal-list-buttons';
+
+    const removeButton = document.createElement('button');
+    removeButton.type = 'button';
+    removeButton.className = 'secondary-button';
+    removeButton.textContent = 'Remove';
+    removeButton.addEventListener('click', () => {
+      state.mealLog = (state.mealLog || []).filter((item) => item.id !== entry.id);
+      recalculateTodayMacrosFromMeals();
+      saveState();
+      render();
+    });
+
+    actions.appendChild(removeButton);
+
+    row.appendChild(textWrap);
+    row.appendChild(actions);
+    mealEntriesList.appendChild(row);
+  });
 }
 
 function updateDailyMeta() {
   weightInput.value = state.currentWeight || '';
-  setMacroFieldValues(state.currentMacros || createEmptyMacroValues());
+  const progress = getMacroProgressSnapshot();
+  if (macroProgressStatus) {
+    if (progress.hasGoals) {
+      macroProgressStatus.textContent = `Remaining: ${progress.remaining.calories} kcal • P ${progress.remaining.protein}g • C ${progress.remaining.carbs}g • F ${progress.remaining.fat}g`;
+    } else {
+      macroProgressStatus.textContent = 'Set macro goals in your profile to track daily remaining calories and macros.';
+    }
+  }
+  renderMealEntries();
   renderMoodPicker();
 }
 
@@ -1631,6 +2093,7 @@ function saveWeightEntry() {
   }
 
   state.currentWeight = value;
+  updateHistoryFromCompletion();
   saveState();
   updateDailyMeta();
   render();
@@ -1639,7 +2102,7 @@ function saveWeightEntry() {
 
 function renderDailyChecklist() {
   const total = state.unconditionals.length;
-  const completed = state.unconditionals.filter((task) => task.done).length;
+  const completed = state.unconditionals.filter((task) => isDailyTaskComplete(task)).length;
   taskList.innerHTML = '';
 
   if (total === 0) {
@@ -1649,6 +2112,11 @@ function renderDailyChecklist() {
     taskList.appendChild(empty);
     return;
   }
+
+  const macroProgress = getMacroProgressSnapshot();
+  const macroLabel = macroProgress.hasGoals
+    ? `Macros remaining: ${macroProgress.remaining.calories} kcal / P${macroProgress.remaining.protein} C${macroProgress.remaining.carbs} F${macroProgress.remaining.fat}`
+    : `Macros: ${state.currentMacros?.calories || '-'} kcal / P${state.currentMacros?.protein || '-'} C${state.currentMacros?.carbs || '-'} F${state.currentMacros?.fat || '-'}`;
 
   const dailyMetaItems = [
     {
@@ -1663,13 +2131,18 @@ function renderDailyChecklist() {
     },
     {
       key: 'macros',
-      label: `Macros: ${state.currentMacros?.calories || '-'} kcal / P${state.currentMacros?.protein || '-'} C${state.currentMacros?.carbs || '-'} F${state.currentMacros?.fat || '-'}`,
-      done: Boolean(state.currentMacros?.calories || state.currentMacros?.protein || state.currentMacros?.carbs || state.currentMacros?.fat),
+      label: macroLabel,
+      done: macroProgress.hasGoals ? macroProgress.goalMet : macroProgress.hasAnyIntake,
+      completionText: macroProgress.hasGoals
+        ? (macroProgress.goalMet
+          ? (macroProgress.overByHundred ? 'Completed ✅ 🐷' : 'Completed ✅ 🤩')
+          : 'Required')
+        : (macroProgress.hasAnyIntake ? 'Completed ✅' : 'Required'),
     },
   ];
 
   const baseTaskCount = state.unconditionals.length;
-  const dailyTaskItems = [...state.unconditionals.map((task) => ({ ...task, meta: null })), ...dailyMetaItems.map((item) => ({
+  const dailyTaskItems = [...state.unconditionals.map((task) => ({ ...task, done: isDailyTaskComplete(task), meta: null })), ...dailyMetaItems.map((item) => ({
     text: item.label,
     done: item.done,
     meta: item,
@@ -1695,10 +2168,11 @@ function renderDailyChecklist() {
           }
         } else if (task.meta.key === 'macros') {
           if (!checkbox.checked) {
-            state.currentMacros = createEmptyMacroValues();
-            setMacroFieldValues(state.currentMacros);
+            clearTodayMacroTracking();
+            setMacroFieldValues(createEmptyMacroValues());
           }
         }
+          updateHistoryFromCompletion();
         saveState();
         render();
         if (checkbox.checked) {
@@ -1710,6 +2184,9 @@ function renderDailyChecklist() {
       const taskIndex = index < baseTaskCount ? index : -1;
       if (taskIndex >= 0) {
         const dailyTask = state.unconditionals[taskIndex];
+        if (dailyTask.id === 'hydration') {
+          state.unconditionals[taskIndex].hydrationCups = checkbox.checked ? 10 : 0;
+        }
         const today = getTodayKey();
         const isCompletedToday = dailyTask.completedDate === today;
         const hasLegacyCredit = dailyTask.done && !dailyTask.completedDate;
@@ -1746,6 +2223,7 @@ function renderDailyChecklist() {
 
     let stepsControl = null;
     let stepsXpBadge = null;
+    let hydrationControl = null;
     if (!task.meta && task.id === 'steps') {
       stepsControl = document.createElement('label');
       stepsControl.className = 'steps-control';
@@ -1791,6 +2269,60 @@ function renderDailyChecklist() {
       stepsXpBadge.textContent = `${calculateUnconditionalXp(task)} XP`;
     }
 
+    if (!task.meta && task.id === 'hydration') {
+      hydrationControl = document.createElement('div');
+      hydrationControl.className = 'hydration-cups';
+
+      const currentCups = Math.max(0, Math.min(10, Number(task.hydrationCups) || 0));
+
+      for (let cupIndex = 1; cupIndex <= 10; cupIndex += 1) {
+        const cupButton = document.createElement('button');
+        cupButton.type = 'button';
+        cupButton.className = `cup-emoji${cupIndex <= currentCups ? ' filled' : ''}`;
+        cupButton.textContent = cupIndex <= currentCups ? '🥤' : '☕';
+        cupButton.setAttribute('aria-label', `Set hydration cups to ${cupIndex}`);
+        cupButton.addEventListener('click', () => {
+          const taskIndex = index < baseTaskCount ? index : -1;
+          if (taskIndex < 0) return;
+
+          const activeCount = Math.max(0, Math.min(10, Number(state.unconditionals[taskIndex].hydrationCups) || 0));
+          const nextValue = activeCount === cupIndex ? cupIndex - 1 : cupIndex;
+          state.unconditionals[taskIndex].hydrationCups = nextValue;
+
+          const hydrationTask = state.unconditionals[taskIndex];
+          const today = getTodayKey();
+          const shouldBeDone = nextValue >= 10;
+          const isCompletedToday = hydrationTask.completedDate === today;
+          const hasLegacyCredit = hydrationTask.done && !hydrationTask.completedDate;
+          const xpGain = calculateUnconditionalXp(hydrationTask);
+
+          if (shouldBeDone && !isCompletedToday) {
+            addXp(xpGain);
+            addAttributeXp(hydrationTask.attribute, xpGain);
+            state.unconditionals[taskIndex].done = true;
+            state.unconditionals[taskIndex].completedDate = today;
+            state.unconditionals[taskIndex].lastAwardedXp = xpGain;
+            updateLifetimeTotals('daily', hydrationTask.id || `daily-${taskIndex}`, 1, xpGain);
+          } else if (!shouldBeDone && hydrationTask.done) {
+            if (isCompletedToday || hasLegacyCredit) {
+              const rollbackXp = Number(hydrationTask.lastAwardedXp) || xpGain;
+              addXp(-rollbackXp);
+              addAttributeXp(hydrationTask.attribute, -rollbackXp);
+              updateLifetimeTotals('daily', hydrationTask.id || `daily-${taskIndex}`, -1, -rollbackXp);
+            }
+            state.unconditionals[taskIndex].done = false;
+            state.unconditionals[taskIndex].completedDate = '';
+            state.unconditionals[taskIndex].lastAwardedXp = 0;
+          }
+
+          updateHistoryFromCompletion();
+          saveState();
+          render();
+        });
+        hydrationControl.appendChild(cupButton);
+      }
+    }
+
     let attributeBadge = null;
     if (!task.meta) {
       attributeBadge = document.createElement('span');
@@ -1802,7 +2334,7 @@ function renderDailyChecklist() {
     if (task.meta) {
       badge = document.createElement('span');
       badge.className = 'completion-badge';
-      badge.textContent = task.done ? 'Completed' : 'Required';
+      badge.textContent = task.meta.completionText || (task.done ? 'Completed' : 'Required');
     }
 
     const deleteButton = document.createElement('button');
@@ -1824,6 +2356,9 @@ function renderDailyChecklist() {
     item.appendChild(label);
     if (stepsControl) {
       item.appendChild(stepsControl);
+    }
+    if (hydrationControl) {
+      item.appendChild(hydrationControl);
     }
     if (stepsXpBadge) {
       item.appendChild(stepsXpBadge);
@@ -2078,11 +2613,7 @@ function renderLongTermChecklists() {
     addButton.type = 'button';
     addButton.textContent = 'Add item';
     addButton.addEventListener('click', () => {
-      const text = window.prompt(`Add an item to ${section.title}`);
-      if (!text) return;
-      state.checklists[section.key].push({ text: text.trim(), done: false, priority: 'medium' });
-      saveState();
-      render();
+      openAddChecklistItemDialog(section.key, section.title);
     });
 
     if (section.key === 'quarterly') {
@@ -2091,7 +2622,7 @@ function renderLongTermChecklists() {
       resetButton.className = 'secondary-button';
       resetButton.textContent = 'Reset this quarter';
       resetButton.addEventListener('click', () => {
-        state.checklists.quarterly = state.checklists.quarterly.map((item) => ({ ...item, done: false }));
+        state.checklists.quarterly = state.checklists.quarterly.map((item) => ({ ...item, done: false, progress: 0 }));
         saveState();
         render();
       });
@@ -2104,7 +2635,7 @@ function renderLongTermChecklists() {
       resetButton.className = 'secondary-button';
       resetButton.textContent = 'Reset this year';
       resetButton.addEventListener('click', () => {
-        state.checklists.yearly = state.checklists.yearly.map((item) => ({ ...item, done: false }));
+        state.checklists.yearly = state.checklists.yearly.map((item) => ({ ...item, done: false, progress: 0 }));
         saveState();
         render();
       });
@@ -2124,7 +2655,10 @@ function renderLongTermChecklists() {
     const items = state.checklists[section.key] || [];
     const completed = items.filter((item) => item.done).length;
     const percent = items.length ? Math.round((completed / items.length) * 100) : 0;
-    summary.textContent = `${completed}/${items.length} done • ${percent}%`;
+    const averageProgress = items.length
+      ? Math.round(items.reduce((sum, item) => sum + (Number(item.progress) || 0), 0) / items.length)
+      : 0;
+    summary.textContent = `${completed}/${items.length} done • ${percent}% complete • ${averageProgress}% avg progress`;
 
     const list = document.createElement('ul');
     list.className = 'task-list';
@@ -2138,6 +2672,7 @@ function renderLongTermChecklists() {
       items.forEach((item, index) => {
         const li = document.createElement('li');
         li.className = `task-item${item.done ? ' done' : ''}`;
+        const supportsProgressTracking = section.key === 'quarterly' || section.key === 'yearly' || section.key === 'fiveYear';
 
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
@@ -2145,6 +2680,11 @@ function renderLongTermChecklists() {
         checkbox.checked = item.done;
         checkbox.addEventListener('change', () => {
           state.checklists[section.key][index].done = checkbox.checked;
+          if (supportsProgressTracking) {
+            state.checklists[section.key][index].progress = checkbox.checked
+              ? 100
+              : Math.min(99, Number(state.checklists[section.key][index].progress) || 0);
+          }
           saveState();
           render();
           if (checkbox.checked) {
@@ -2182,6 +2722,38 @@ function renderLongTermChecklists() {
           render();
         });
 
+        let progressControl = null;
+        if (supportsProgressTracking) {
+          progressControl = document.createElement('div');
+          progressControl.className = 'progress-control';
+
+          const progressLabel = document.createElement('span');
+          progressLabel.className = 'priority-label';
+          progressLabel.textContent = 'Progress';
+
+          const progressInput = document.createElement('input');
+          progressInput.type = 'number';
+          progressInput.min = '0';
+          progressInput.max = '100';
+          progressInput.step = '1';
+          progressInput.className = 'progress-input';
+          progressInput.value = String(Number(item.progress) || 0);
+          progressInput.addEventListener('change', () => {
+            const parsed = Number(progressInput.value);
+            const nextProgress = Number.isFinite(parsed) ? Math.max(0, Math.min(100, Math.round(parsed))) : 0;
+            state.checklists[section.key][index].progress = nextProgress;
+            state.checklists[section.key][index].done = nextProgress >= 100;
+            saveState();
+            render();
+            if (nextProgress >= 100) {
+              launchConfetti();
+            }
+          });
+
+          progressControl.appendChild(progressLabel);
+          progressControl.appendChild(progressInput);
+        }
+
         const deleteButton = document.createElement('button');
         deleteButton.type = 'button';
         deleteButton.className = 'icon-button';
@@ -2199,6 +2771,9 @@ function renderLongTermChecklists() {
         li.appendChild(checkbox);
         li.appendChild(label);
         li.appendChild(attributeBadge);
+        if (progressControl) {
+          li.appendChild(progressControl);
+        }
         li.appendChild(priorityControl);
         li.appendChild(deleteButton);
         list.appendChild(li);
@@ -2228,9 +2803,7 @@ themeButtons.forEach((button) => button.classList.toggle('active', button.datase
 
 function render() {
   const dayChanged = ensureTodayState();
-  const total = state.unconditionals.length;
-  const completed = state.unconditionals.filter((task) => task.done).length;
-  const percent = total ? Math.round((completed / total) * 100) : 0;
+  const progress = getDailyQuestProgressSnapshot();
   const streak = calculateStreak(state.history);
   const level = getLevelFromXp(Number(state.xp) || 0);
   const overallXp = Number(state.xp) || 0;
@@ -2238,15 +2811,8 @@ function render() {
   const xpNeededForNextLevel = getXpForNextLevel(level);
   const xpInLevel = Math.max(0, overallXp - levelStartXp);
 
-  const dailyMetaRequirementCount = 3;
-  const requiredDailyCount = state.unconditionals.length + dailyMetaRequirementCount;
-  const macrosDone = Boolean(state.currentMacros?.calories || state.currentMacros?.protein || state.currentMacros?.carbs || state.currentMacros?.fat);
-  const completedRequiredCount = completed + (state.mood ? 1 : 0) + (state.currentWeight ? 1 : 0) + (macrosDone ? 1 : 0);
-  const dailyPercent = requiredDailyCount ? Math.round((completedRequiredCount / requiredDailyCount) * 100) : 0;
-  const allRequiredDone = requiredDailyCount > 0 && completedRequiredCount >= requiredDailyCount;
-
-  completedCountEl.textContent = `${completedRequiredCount}`;
-  progressPercentEl.textContent = `${dailyPercent}%`;
+  completedCountEl.textContent = `${progress.completedRequiredCount}`;
+  progressPercentEl.textContent = `${progress.dailyPercent}%`;
   streakCountEl.textContent = `${streak}`;
   xpCountEl.textContent = `${overallXp}`;
   levelCountEl.textContent = `${level}`;
@@ -2263,14 +2829,13 @@ function render() {
     levelProgressTextEl.textContent = `${formatNumber(xpInLevel)} / ${formatNumber(xpNeededForNextLevel)} to next level`;
   }
 
-  const allDone = total > 0 && completed === total;
   todayStatusEl.textContent = dayChanged
     ? 'A fresh day has started — your checklist is reset.'
-    : allDone
+    : progress.allRequiredDone
       ? 'Nice work — you hit everything today.'
-      : total === 0
+      : progress.requiredDailyCount === 0
         ? 'Your daily checklist is ready for today.'
-        : `${total - completed} left to go today.`;
+        : `${progress.remainingRequiredCount} left to go today.`;
 
   if ('Notification' in window) {
     const permission = Notification.permission;
@@ -2296,16 +2861,85 @@ function render() {
   renderDailyChecklist();
   renderConditionalChecklist();
   renderLongTermChecklists();
-  maybeAwardDailyCompletionAchievement(allRequiredDone);
+  maybeAwardDailyCompletionAchievement(progress.allRequiredDone);
   maybeNotifyLevelUp(level);
-  maybeNotifyAllTasksComplete(allRequiredDone);
+  maybeNotifyAllTasksComplete(progress.allRequiredDone);
+}
+
+function resetMealDialogFields() {
+  if (mealNameInput) mealNameInput.value = '';
+  if (mealFoodInput) mealFoodInput.value = '';
+  if (mealCaloriesInput) mealCaloriesInput.value = '';
+  if (mealProteinInput) mealProteinInput.value = '';
+  if (mealCarbsInput) mealCarbsInput.value = '';
+  if (mealFatInput) mealFatInput.value = '';
+}
+
+function resetChecklistDialogFields() {
+  if (checklistItemTextInput) checklistItemTextInput.value = '';
+  if (checklistProgressInput) checklistProgressInput.value = '0';
+}
+
+function openAddChecklistItemDialog(sectionKey, sectionTitle) {
+  if (!addChecklistDialog) return;
+
+  activeChecklistSectionKey = sectionKey;
+  const supportsProgress = sectionKey === 'quarterly' || sectionKey === 'yearly' || sectionKey === 'fiveYear';
+
+  if (addChecklistDialogTitle) {
+    addChecklistDialogTitle.textContent = `Add item to ${sectionTitle}`;
+  }
+  if (checklistProgressField) {
+    checklistProgressField.hidden = !supportsProgress;
+  }
+
+  resetChecklistDialogFields();
+  if (typeof addChecklistDialog.showModal === 'function') {
+    addChecklistDialog.showModal();
+  } else {
+    addChecklistDialog.setAttribute('open', 'open');
+  }
+}
+
+function closeAddChecklistItemDialog() {
+  if (!addChecklistDialog) return;
+  if (typeof addChecklistDialog.close === 'function') {
+    addChecklistDialog.close();
+  } else {
+    addChecklistDialog.removeAttribute('open');
+  }
+}
+
+function openAddMealDialog() {
+  if (!addMealDialog) return;
+  if (typeof addMealDialog.showModal === 'function') {
+    addMealDialog.showModal();
+  } else {
+    addMealDialog.setAttribute('open', 'open');
+  }
+}
+
+function closeAddMealDialog() {
+  if (!addMealDialog) return;
+  if (typeof addMealDialog.close === 'function') {
+    addMealDialog.close();
+  } else {
+    addMealDialog.removeAttribute('open');
+  }
 }
 
 resetButton.addEventListener('click', () => {
-  state.unconditionals = state.unconditionals.map((task) => ({ ...task, done: false, completedDate: '', attribute: getFixedAttribute(task.text) }));
+  state.unconditionals = state.unconditionals.map((task) => ({
+    ...task,
+    done: false,
+    completedDate: '',
+    hydrationCups: task.id === 'hydration' ? 0 : task.hydrationCups,
+    attribute: getFixedAttribute(task.text),
+  }));
   state.conditionals = state.conditionals.map((task) => ({ ...task, done: false, completedDate: '', xpEarned: 0, attribute: getFixedAttribute(task.text) }));
   state.mood = '';
   state.currentWeight = '';
+  clearTodayMacroTracking();
   state.currentMacros = createEmptyMacroValues();
   state.history = state.history.filter((day) => day !== getTodayKey());
   saveState();
@@ -2360,7 +2994,85 @@ weightInput.addEventListener('keydown', (event) => {
 });
 
 macroSaveButton?.addEventListener('click', () => {
-  saveMacroEntry();
+  saveMacroEntry({
+    meal: 'Quick add',
+    food: 'Manual entry',
+  });
+});
+
+addMealButton?.addEventListener('click', () => {
+  resetMealDialogFields();
+  openAddMealDialog();
+});
+
+cancelMealButton?.addEventListener('click', () => {
+  closeAddMealDialog();
+});
+
+cancelChecklistItemButton?.addEventListener('click', () => {
+  closeAddChecklistItemDialog();
+});
+
+addChecklistForm?.addEventListener('submit', (event) => {
+  event.preventDefault();
+
+  const sectionKey = String(activeChecklistSectionKey || '').trim();
+  if (!sectionKey || !state.checklists?.[sectionKey]) {
+    closeAddChecklistItemDialog();
+    return;
+  }
+
+  const text = String(checklistItemTextInput?.value || '').trim();
+  if (!text) return;
+
+  const supportsProgress = sectionKey === 'quarterly' || sectionKey === 'yearly' || sectionKey === 'fiveYear';
+  const parsedProgress = Number(checklistProgressInput?.value);
+  const nextProgress = supportsProgress && Number.isFinite(parsedProgress)
+    ? Math.max(0, Math.min(100, Math.round(parsedProgress)))
+    : 0;
+
+  state.checklists[sectionKey].push({
+    text,
+    done: nextProgress >= 100,
+    progress: nextProgress,
+    priority: 'medium',
+  });
+
+  saveState();
+  render();
+  if (nextProgress >= 100) {
+    launchConfetti();
+  }
+
+  closeAddChecklistItemDialog();
+  resetChecklistDialogFields();
+});
+
+addMealForm?.addEventListener('submit', (event) => {
+  event.preventDefault();
+
+  const macros = {
+    calories: parseMacroInputValue(mealCaloriesInput?.value),
+    protein: parseMacroInputValue(mealProteinInput?.value),
+    carbs: parseMacroInputValue(mealCarbsInput?.value),
+    fat: parseMacroInputValue(mealFatInput?.value),
+  };
+
+  const saved = saveMacroEntry({
+    meal: String(mealNameInput?.value || '').trim() || 'Meal',
+    food: String(mealFoodInput?.value || '').trim() || 'Food',
+    macros,
+  });
+
+  if (!saved) {
+    if (macroProgressStatus) {
+      macroProgressStatus.textContent = 'Enter at least one macro value before saving a meal.';
+    }
+    return;
+  }
+
+  closeAddMealDialog();
+  resetMealDialogFields();
 });
 
 [macroCaloriesInput, macroProteinInput, macroCarbsInput, macroFatInput].forEach((input) => {
@@ -2372,14 +3084,18 @@ macroSaveButton?.addEventListener('click', () => {
   });
 });
 
-fatsecretSearchButton?.addEventListener('click', () => {
-  runFatSecretFoodSearch();
+foodLookupSearchButton?.addEventListener('click', () => {
+  runFoodLookupSearch();
 });
 
-fatsecretQueryInput?.addEventListener('keydown', (event) => {
+addSharedFoodButton?.addEventListener('click', () => {
+  addCurrentFoodToSharedLibrary();
+});
+
+foodLookupQueryInput?.addEventListener('keydown', (event) => {
   if (event.key === 'Enter') {
     event.preventDefault();
-    runFatSecretFoodSearch();
+    runFoodLookupSearch();
   }
 });
 
@@ -2520,6 +3236,7 @@ async function initializeApp() {
     scheduleReminders();
     render();
     await hydrateStateFromSupabase();
+    await hydrateSharedFoodLibrary();
     await syncAdapter.logReadWriteTest();
 
     syncAdapter.onAuthStateChange((session) => {

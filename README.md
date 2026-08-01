@@ -280,49 +280,52 @@ python3 -m http.server 8000
 
 Then open http://localhost:8000 in your browser.
 
-## FatSecret integration (secure setup)
+## Local food library mode (no extra deployment)
 
-Do not put FatSecret credentials in frontend files. The client secret must only live on a trusted backend.
+If you do not want any external nutrition API dependency, the app can use an internal built-in food library for lookup and macro autofill.
 
-The app now calls a backend endpoint at:
+This mode:
 
-- `/api/fatsecret/search?query=<term>&limit=<n>`
+1. Requires no additional backend deployment.
+2. Works entirely from the main app bundle.
+3. Lets users still manually edit macros after selecting a food.
 
-Expected JSON response shape:
+The built-in list includes common items (banana, eggs, chicken breast, rice, oats, yogurt, etc.) and can be extended in [app.js](app.js).
 
-```json
-{
-	"items": [
-		{
-			"name": "Chicken Breast, grilled",
-			"calories": 165,
-			"protein": 31,
-			"carbs": 0,
-			"fat": 4
-		}
-	]
-}
+## Shared community foods (recommended DB setup)
+
+Yes, this is better handled in the database if you want one user's custom food to appear for everyone.
+
+Run this SQL in Supabase:
+
+```sql
+create table if not exists public.shared_foods (
+	id uuid primary key default gen_random_uuid(),
+	name text not null,
+	calories integer not null default 0 check (calories >= 0),
+	protein integer not null default 0 check (protein >= 0),
+	carbs integer not null default 0 check (carbs >= 0),
+	fat integer not null default 0 check (fat >= 0),
+	created_by uuid not null references auth.users(id) on delete cascade,
+	created_at timestamptz not null default timezone('utc', now())
+);
+
+create index if not exists shared_foods_name_idx on public.shared_foods (name);
+
+alter table public.shared_foods enable row level security;
+
+drop policy if exists "shared_foods_read_all" on public.shared_foods;
+drop policy if exists "shared_foods_insert_authenticated" on public.shared_foods;
+
+create policy "shared_foods_read_all"
+on public.shared_foods
+for select
+to authenticated
+using (true);
+
+create policy "shared_foods_insert_authenticated"
+on public.shared_foods
+for insert
+to authenticated
+with check (auth.uid() = created_by);
 ```
-
-Backend requirements:
-
-1. Keep `FATSECRET_CLIENT_ID` and `FATSECRET_CLIENT_SECRET` in server environment variables only.
-2. Exchange credentials for a FatSecret access token server-side.
-3. Query FatSecret food search and normalize results into the JSON format above.
-4. Never return secrets to the browser.
-
-If your credentials were shared in chat or committed anywhere, rotate them immediately in FatSecret developer settings.
-
-### Vercel environment variables
-
-If deploying on Vercel, add these project env vars:
-
-1. `FATSECRET_CLIENT_ID`
-2. `FATSECRET_CLIENT_SECRET`
-
-The route also accepts your current names:
-
-1. `Client_ID`
-2. `Client_Secret`
-
-This repo includes a server route at [api/fatsecret/search.js](api/fatsecret/search.js) that reads those env vars and proxies requests safely.

@@ -6,6 +6,7 @@ const PROFILES_TABLE = 'profiles';
 const FOLLOWS_TABLE = 'follows';
 const PARTIES_TABLE = 'parties';
 const PARTY_MEMBERS_TABLE = 'party_members';
+const SHARED_FOODS_TABLE = 'shared_foods';
 const PROFILE_PHOTOS_BUCKET = 'profile-photos';
 const LOCAL_STATE_KEY = 'habit-checklist-v1';
 
@@ -1146,7 +1147,19 @@ async function getXpLeaderboard(limit = 50) {
 	};
 }
 
-async function searchFatSecretFoods(query, limit = 8) {
+function normalizeSharedFoodRow(row) {
+	return {
+		id: row.id,
+		name: String(row.name || '').trim(),
+		calories: Number.isFinite(Number(row.calories)) ? Math.max(0, Math.round(Number(row.calories))) : 0,
+		protein: Number.isFinite(Number(row.protein)) ? Math.max(0, Math.round(Number(row.protein))) : 0,
+		carbs: Number.isFinite(Number(row.carbs)) ? Math.max(0, Math.round(Number(row.carbs))) : 0,
+		fat: Number.isFinite(Number(row.fat)) ? Math.max(0, Math.round(Number(row.fat))) : 0,
+		source: 'Community',
+	};
+}
+
+async function listSharedFoods(query = '', limit = 100) {
 	const ownerResult = await getStateOwner();
 	if (!ownerResult.ok) {
 		return {
@@ -1156,54 +1169,83 @@ async function searchFatSecretFoods(query, limit = 8) {
 		};
 	}
 
+	const safeLimit = Number.isFinite(Number(limit)) ? Math.max(1, Math.min(250, Math.round(Number(limit)))) : 100;
 	const safeQuery = String(query || '').trim();
-	if (!safeQuery) {
+
+	let dbQuery = supabase
+		.from(SHARED_FOODS_TABLE)
+		.select('id, name, calories, protein, carbs, fat, created_at')
+		.order('name', { ascending: true })
+		.limit(safeLimit);
+
+	if (safeQuery) {
+		dbQuery = dbQuery.ilike('name', `%${safeQuery}%`);
+	}
+
+	const { data, error } = await dbQuery;
+	if (error) {
 		return {
 			ok: false,
-			message: 'Type a food name first.',
+			message: describeTableError('Could not load shared foods', SHARED_FOODS_TABLE, error),
 			items: [],
 		};
 	}
 
-	const safeLimit = Number.isFinite(Number(limit)) ? Math.max(1, Math.min(20, Math.round(Number(limit)))) : 8;
-	const endpoint = `/api/fatsecret/search?query=${encodeURIComponent(safeQuery)}&limit=${safeLimit}`;
+	return {
+		ok: true,
+		message: (data || []).length > 0 ? 'Shared foods loaded.' : 'No shared foods found yet.',
+		items: (data || []).map(normalizeSharedFoodRow),
+	};
+}
 
-	try {
-		const response = await fetch(endpoint, {
-			method: 'GET',
-			headers: {
-				'Accept': 'application/json',
-			},
-		});
-
-		if (!response.ok) {
-			let detail = '';
-			try {
-				const errorPayload = await response.json();
-				detail = String(errorPayload?.error || '').trim();
-			} catch {
-				detail = '';
-			}
-			return {
-				ok: false,
-				message: detail ? `FatSecret search failed. ${detail}` : 'FatSecret search endpoint is unavailable. Configure /api/fatsecret/search first.',
-				items: [],
-			};
-		}
-
-		const payload = await response.json();
-		return {
-			ok: true,
-			message: Array.isArray(payload?.items) && payload.items.length > 0 ? 'Food results loaded.' : 'No matching foods found.',
-			items: Array.isArray(payload?.items) ? payload.items : [],
-		};
-	} catch {
+async function addSharedFood(food) {
+	const ownerResult = await getStateOwner();
+	if (!ownerResult.ok) {
 		return {
 			ok: false,
-			message: 'FatSecret lookup failed. Check your backend integration.',
-			items: [],
+			message: ownerResult.message,
+			item: null,
 		};
 	}
+
+	const name = String(food?.name || '').trim();
+	if (!name) {
+		return {
+			ok: false,
+			message: 'Food name is required.',
+			item: null,
+		};
+	}
+
+	const payload = {
+		name,
+		calories: Number.isFinite(Number(food?.calories)) ? Math.max(0, Math.round(Number(food.calories))) : 0,
+		protein: Number.isFinite(Number(food?.protein)) ? Math.max(0, Math.round(Number(food.protein))) : 0,
+		carbs: Number.isFinite(Number(food?.carbs)) ? Math.max(0, Math.round(Number(food.carbs))) : 0,
+		fat: Number.isFinite(Number(food?.fat)) ? Math.max(0, Math.round(Number(food.fat))) : 0,
+		created_by: ownerResult.ownerKey,
+		created_at: new Date().toISOString(),
+	};
+
+	const { data, error } = await supabase
+		.from(SHARED_FOODS_TABLE)
+		.insert(payload)
+		.select('id, name, calories, protein, carbs, fat, created_at')
+		.single();
+
+	if (error) {
+		return {
+			ok: false,
+			message: describeTableError('Could not add shared food', SHARED_FOODS_TABLE, error),
+			item: null,
+		};
+	}
+
+	return {
+		ok: true,
+		message: 'Food added to community library.',
+		item: normalizeSharedFoodRow(data),
+	};
 }
 
 window.supabase = supabase;
@@ -1235,5 +1277,6 @@ window.supabaseSync = {
 	joinParty,
 	listMyParties,
 	getXpLeaderboard,
-	searchFatSecretFoods,
+	listSharedFoods,
+	addSharedFood,
 };
