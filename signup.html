@@ -4,10 +4,23 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#4f46e5" />
-    <link rel="stylesheet" href="/styles.css?v=9" />
+    <link rel="stylesheet" href="/styles.css?v=13" />
     <title>Sign Up | Habit Check</title>
   </head>
   <body data-auth-mode="signup">
+    <header class="brand-banner">
+      <a href="/index.html" class="brand-chip" aria-label="CHZZTRCKR home">
+        <img src="/assets/chzztrckr-logo.svg" class="brand-logo" alt="" />
+        <span class="brand-wordmark">
+          <span class="brand-title">CHZZTRCKR</span>
+          <span class="brand-sub">Adventurer's Guild</span>
+        </span>
+      </a>
+      <a href="/profile.html" class="brand-profile-bubble" aria-label="Open profile">
+        <img id="globalProfileAvatarImage" class="brand-profile-image" alt="Profile" hidden />
+        <span id="globalProfileAvatarFallback" class="brand-profile-fallback">A</span>
+      </a>
+    </header>
     <main class="auth-shell">
       <section class="auth-card">
         <p class="eyebrow">Create Your Party</p>
@@ -24,6 +37,30 @@
             <span>Password</span>
             <input id="passwordInput" type="password" autocomplete="new-password" minlength="6" required />
           </label>
+
+          <section class="assessment-panel" aria-labelledby="profileCreationTitle">
+            <h2 id="profileCreationTitle">Profile Setup</h2>
+            <p class="status-text">Set your adventurer identity now. You can edit this later on the Profile page.</p>
+            <div class="assessment-grid">
+              <label class="auth-field">
+                <span>Display name</span>
+                <input id="displayNameInput" type="text" maxlength="40" placeholder="Your adventurer name" />
+                <small class="auth-help">Visible in social search, followers, and parties.</small>
+              </label>
+
+              <label class="auth-field">
+                <span>Profile photo URL</span>
+                <input id="photoUrlInput" type="url" placeholder="https://..." />
+                <small class="auth-help">Use a direct image URL (jpg, png, or webp).</small>
+              </label>
+
+              <label class="auth-field">
+                <span>Add profile image</span>
+                <input id="photoFileInput" type="file" accept="image/*" />
+                <small class="auth-help">Optional. If selected, the image uploads right after account creation when sign-in is active.</small>
+              </label>
+            </div>
+          </section>
 
           <section class="assessment-panel" aria-labelledby="assessmentTitle">
             <h2 id="assessmentTitle">Character Assessment</h2>
@@ -225,7 +262,8 @@
       </section>
     </main>
 
-    <script type="module" src="/scripts/setup-supabase.js?v=5"></script>
-    <script type="module" src="/scripts/auth.js?v=6"></script>
+    <script type="module" src="/scripts/setup-supabase.js?v=7"></script>
+    <script type="module" src="/scripts/top-avatar.js?v=2"></script>
+    <script type="module" src="/scripts/auth.js?v=8"></script>
   </body>
 </html>

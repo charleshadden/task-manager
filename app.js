@@ -11,7 +11,7 @@ const LEVEL_XP_TIERS = [
   { maxLevel: 15, xpPerLevel: 20000 },
   { maxLevel: 20, xpPerLevel: 30000 },
 ];
-const ATTRIBUTE_XP_PER_POINT = 1000;
+const ATTRIBUTE_XP_PER_POINT = 10000;
 const DAILY_QUEST_XP = 1;
 const DAILY_STREAK_BONUS_XP = 1000;
 const ATTRIBUTE_NAMES = ['Strength', 'Dexterity', 'Wisdom', 'Intelligence', 'Charisma', 'Constitution'];
@@ -81,6 +81,20 @@ const defaultChecklistSections = {
   fiveYear: [],
 };
 
+function createDefaultAttributes() {
+  return ATTRIBUTE_NAMES.reduce((acc, name) => {
+    acc[name] = 0;
+    return acc;
+  }, {});
+}
+
+function createDefaultBaseAttributes() {
+  return ATTRIBUTE_NAMES.reduce((acc, name) => {
+    acc[name] = 0;
+    return acc;
+  }, {});
+}
+
 function createDefaultTotals() {
   const dailyTaskCompletions = {};
   const dailyTaskXpEarned = {};
@@ -112,15 +126,19 @@ function createDefaultState() {
     unconditionals: [...defaultUnconditionals].map(normalizeUnconditionalItem),
     conditionals: [...defaultConditionals].map(normalizeConditionalItem),
     xp: 0,
-    attributes: {},
+    attributes: createDefaultAttributes(),
+    baseAttributes: createDefaultBaseAttributes(),
     history: [],
     streakBonusesAwarded: [],
     totals: createDefaultTotals(),
     playerClass: DEFAULT_PLAYER_CLASS,
     playerArchetype: DEFAULT_ARCHETYPE,
+    achievements: [],
     assessmentApplied: false,
     lastSeenDate: getTodayKey(),
     reminderEnabled: false,
+    lastNotifiedLevel: 0,
+    lastAllTasksNotificationDate: '',
     checklists: {
       weekly: [],
       quarterly: [],
@@ -128,6 +146,8 @@ function createDefaultState() {
       fiveYear: [],
     },
     mood: '',
+    moodLog: [],
+    stepsLog: [],
     weightLog: [],
     currentWeight: '',
     updatedAt: new Date().toISOString(),
@@ -223,7 +243,12 @@ function ensureStateShape() {
     : [...defaultConditionals].map(normalizeConditionalItem);
 
   state.xp = Number.isFinite(Number(state.xp)) ? Number(state.xp) : 0;
-  state.attributes = state.attributes && typeof state.attributes === 'object' ? state.attributes : {};
+  state.attributes = state.attributes && typeof state.attributes === 'object'
+    ? { ...createDefaultAttributes(), ...state.attributes }
+    : createDefaultAttributes();
+  state.baseAttributes = state.baseAttributes && typeof state.baseAttributes === 'object'
+    ? { ...createDefaultBaseAttributes(), ...state.baseAttributes }
+    : createDefaultBaseAttributes();
   state.streakBonusesAwarded = Array.isArray(state.streakBonusesAwarded) ? state.streakBonusesAwarded : [];
   state.playerClass = typeof state.playerClass === 'string' && state.playerClass.trim()
     ? state.playerClass.trim()
@@ -231,7 +256,16 @@ function ensureStateShape() {
   state.playerArchetype = typeof state.playerArchetype === 'string' && state.playerArchetype.trim()
     ? state.playerArchetype.trim()
     : DEFAULT_ARCHETYPE;
+  state.achievements = Array.isArray(state.achievements)
+    ? state.achievements.filter((entry) => entry && typeof entry === 'object' && entry.id && entry.title)
+    : [];
   state.assessmentApplied = Boolean(state.assessmentApplied);
+  state.lastNotifiedLevel = Number.isFinite(Number(state.lastNotifiedLevel))
+    ? Number(state.lastNotifiedLevel)
+    : getLevelFromXp(state.xp);
+  state.lastAllTasksNotificationDate = typeof state.lastAllTasksNotificationDate === 'string'
+    ? state.lastAllTasksNotificationDate
+    : '';
 
   if (!state.checklists || typeof state.checklists !== 'object') {
     state.checklists = { ...defaultChecklistSections };
@@ -243,8 +277,20 @@ function ensureStateShape() {
   state.checklists.fiveYear = Array.isArray(state.checklists.fiveYear) ? state.checklists.fiveYear.map((item) => normalizeChecklistItem(item, 'fiveYear')) : [];
 
   state.mood = state.mood || '';
+  state.moodLog = Array.isArray(state.moodLog) ? state.moodLog : [];
+  state.stepsLog = Array.isArray(state.stepsLog) ? state.stepsLog : [];
   state.weightLog = Array.isArray(state.weightLog) ? state.weightLog : [];
   state.currentWeight = state.currentWeight || '';
+
+  ATTRIBUTE_NAMES.forEach((attributeName) => {
+    const rawXp = Math.max(0, Number(state.attributes?.[attributeName]) || 0);
+    const promotablePoints = Math.floor(rawXp / ATTRIBUTE_XP_PER_POINT);
+    if (promotablePoints <= 0) return;
+
+    state.baseAttributes[attributeName] = Math.max(0, Number(state.baseAttributes?.[attributeName]) || 0) + promotablePoints;
+    state.attributes[attributeName] = rawXp - (promotablePoints * ATTRIBUTE_XP_PER_POINT);
+  });
+
   ensureTotalsShape();
   state.updatedAt = state.updatedAt || new Date().toISOString();
   persistLocalState();
@@ -271,7 +317,7 @@ const syncStatusEl = document.getElementById('syncStatus');
 const accountEmailEl = document.getElementById('accountEmail');
 const logoutButton = document.getElementById('logoutButton');
 const checklistSections = document.getElementById('checklistSections');
-const moodSelect = document.getElementById('moodSelect');
+const moodPicker = document.getElementById('moodPicker');
 const weightInput = document.getElementById('weightInput');
 const weightSaveButton = document.getElementById('weightSaveButton');
 const profilePhotoPreviewEl = document.getElementById('profilePhotoPreview');
@@ -291,6 +337,13 @@ const createPartyButton = document.getElementById('createPartyButton');
 const joinPartyIdInput = document.getElementById('joinPartyIdInput');
 const joinPartyButton = document.getElementById('joinPartyButton');
 const partyListEl = document.getElementById('partyList');
+const moodOptions = [
+  { value: '😄', label: 'Happy' },
+  { value: '😌', label: 'Calm' },
+  { value: '😐', label: 'Neutral' },
+  { value: '😔', label: 'Low' },
+  { value: '😤', label: 'Stressed' },
+];
 
 function getSyncAdapter() {
   return window.supabaseSync || null;
@@ -841,12 +894,18 @@ function loadLocalState(user = currentUser) {
         ? parsed.conditionals.map(normalizeConditionalItem)
         : [...defaultConditionals].map(normalizeConditionalItem),
       xp: Number.isFinite(Number(parsed.xp)) ? Number(parsed.xp) : 0,
-      attributes: parsed.attributes && typeof parsed.attributes === 'object' ? parsed.attributes : {},
+      attributes: parsed.attributes && typeof parsed.attributes === 'object'
+        ? { ...createDefaultAttributes(), ...parsed.attributes }
+        : createDefaultAttributes(),
+      baseAttributes: parsed.baseAttributes && typeof parsed.baseAttributes === 'object'
+        ? { ...createDefaultBaseAttributes(), ...parsed.baseAttributes }
+        : createDefaultBaseAttributes(),
       history: Array.isArray(parsed.history) ? parsed.history : [],
       streakBonusesAwarded: Array.isArray(parsed.streakBonusesAwarded) ? parsed.streakBonusesAwarded : [],
       totals: parsed.totals && typeof parsed.totals === 'object' ? parsed.totals : createDefaultTotals(),
       playerClass: typeof parsed.playerClass === 'string' && parsed.playerClass.trim() ? parsed.playerClass.trim() : DEFAULT_PLAYER_CLASS,
       playerArchetype: typeof parsed.playerArchetype === 'string' && parsed.playerArchetype.trim() ? parsed.playerArchetype.trim() : DEFAULT_ARCHETYPE,
+      achievements: Array.isArray(parsed.achievements) ? parsed.achievements : [],
       assessmentApplied: Boolean(parsed.assessmentApplied),
       lastSeenDate: parsed.lastSeenDate || getTodayKey(),
       reminderEnabled: Boolean(parsed.reminderEnabled),
@@ -857,6 +916,8 @@ function loadLocalState(user = currentUser) {
         fiveYear: Array.isArray(checklists.fiveYear) ? checklists.fiveYear.map((item) => normalizeChecklistItem(item, 'fiveYear')) : [],
       },
       mood: parsed.mood || '',
+      moodLog: Array.isArray(parsed.moodLog) ? parsed.moodLog : [],
+      stepsLog: Array.isArray(parsed.stepsLog) ? parsed.stepsLog : [],
       weightLog: Array.isArray(parsed.weightLog) ? parsed.weightLog : [],
       currentWeight: parsed.currentWeight || '',
       updatedAt: parsed.updatedAt || new Date().toISOString(),
@@ -880,6 +941,74 @@ function getTodayKey() {
   return `${year}-${month}-${day}`;
 }
 
+function getDisplayNameForAchievement() {
+  const fromMetadata = String(currentUser?.user_metadata?.displayName || '').trim();
+  if (fromMetadata) return fromMetadata;
+
+  const emailPrefix = String(currentUser?.email || '').trim();
+  if (emailPrefix.includes('@')) {
+    return emailPrefix.split('@')[0];
+  }
+
+  return 'Adventurer';
+}
+
+function hasAchievement(achievementId) {
+  return Array.isArray(state.achievements) && state.achievements.some((entry) => entry.id === achievementId);
+}
+
+function awardAchievement(achievementId, title, description = '') {
+  if (!achievementId || hasAchievement(achievementId)) {
+    return false;
+  }
+
+  state.achievements = Array.isArray(state.achievements) ? state.achievements : [];
+  const awardedAt = new Date().toISOString();
+  state.achievements.push({
+    id: achievementId,
+    title,
+    description,
+    awardedAt,
+  });
+
+  showNotification('Achievement unlocked!', title);
+  saveState();
+  return true;
+}
+
+function maybeAwardDailyCompletionAchievement(allRequiredDone) {
+  if (!allRequiredDone) return;
+  if (hasAchievement('first-full-daily')) return;
+
+  const displayName = getDisplayNameForAchievement();
+  awardAchievement(
+    'first-full-daily',
+    `It's a dangerous business, "${displayName}", going out your door.`,
+    'Completed your first full daily quest set.'
+  );
+}
+
+function maybeAwardFirstAttributePromotionAchievement(attributeName) {
+  if (!attributeName) return;
+  if (hasAchievement('first-attribute-rankup')) return;
+
+  const shortNameByAttribute = {
+    Strength: 'STR',
+    Dexterity: 'DEX',
+    Wisdom: 'WIS',
+    Intelligence: 'INT',
+    Charisma: 'CHA',
+    Constitution: 'CON',
+  };
+
+  const shortName = shortNameByAttribute[attributeName] || attributeName;
+  awardAchievement(
+    'first-attribute-rankup',
+    'Change is not always growth, but growth is often rooted in change',
+    `Raised ${attributeName} by converting 10,000 XP into a permanent stat point.`
+  );
+}
+
 function ensureTodayState() {
   const today = getTodayKey();
   if (state.lastSeenDate === today) return false;
@@ -894,6 +1023,8 @@ function ensureTodayState() {
     attribute: getFixedAttribute(task.text),
   }));
   state.conditionals = state.conditionals.map((task) => ({ ...task, done: false, completedDate: '', xpEarned: 0, attribute: getFixedAttribute(task.text) }));
+  state.mood = '';
+  state.currentWeight = '';
   state.attributes = state.attributes || {};
   state.lastSeenDate = today;
   saveState();
@@ -929,6 +1060,47 @@ function updateHistoryFromCompletion() {
   }
 }
 
+function upsertMoodLog(value) {
+  const today = getTodayKey();
+  const normalizedMood = String(value || '').trim();
+  const existingIndex = state.moodLog.findIndex((entry) => entry.date === today);
+
+  if (!normalizedMood) {
+    if (existingIndex >= 0) {
+      state.moodLog.splice(existingIndex, 1);
+    }
+    return;
+  }
+
+  const entry = { date: today, mood: normalizedMood };
+  if (existingIndex >= 0) {
+    state.moodLog[existingIndex] = entry;
+  } else {
+    state.moodLog.push(entry);
+  }
+}
+
+function upsertStepsLog(stepsValue) {
+  const today = getTodayKey();
+  const hasValue = Number.isFinite(Number(stepsValue));
+  const existingIndex = state.stepsLog.findIndex((entry) => entry.date === today);
+
+  if (!hasValue) {
+    if (existingIndex >= 0) {
+      state.stepsLog.splice(existingIndex, 1);
+    }
+    return;
+  }
+
+  const normalizedSteps = Math.max(0, Math.round(Number(stepsValue)));
+  const entry = { date: today, steps: normalizedSteps };
+  if (existingIndex >= 0) {
+    state.stepsLog[existingIndex] = entry;
+  } else {
+    state.stepsLog.push(entry);
+  }
+}
+
 function addXp(amount) {
   state.xp = Math.max(0, (Number(state.xp) || 0) + amount);
   saveState();
@@ -937,7 +1109,17 @@ function addXp(amount) {
 function addAttributeXp(attribute, amount) {
   if (!attribute || attribute === 'None') return;
   state.attributes = state.attributes || {};
-  state.attributes[attribute] = Math.max(0, (Number(state.attributes[attribute]) || 0) + amount);
+  state.baseAttributes = state.baseAttributes || createDefaultBaseAttributes();
+
+  const nextXp = Math.max(0, (Number(state.attributes[attribute]) || 0) + amount);
+  const promotedPoints = Math.floor(nextXp / ATTRIBUTE_XP_PER_POINT);
+
+  if (promotedPoints > 0) {
+    state.baseAttributes[attribute] = Math.max(0, Number(state.baseAttributes[attribute]) || 0) + promotedPoints;
+    maybeAwardFirstAttributePromotionAchievement(attribute);
+  }
+
+  state.attributes[attribute] = nextXp - (promotedPoints * ATTRIBUTE_XP_PER_POINT);
   saveState();
 }
 
@@ -990,7 +1172,12 @@ function getQuestXpMultiplier(level) {
 }
 
 function applyStartingProfileFromUserMetadata() {
-  if (!currentUser || state.assessmentApplied) {
+  if (!currentUser) {
+    return false;
+  }
+
+  const hasAssignedBaseAttributes = ATTRIBUTE_NAMES.some((attributeName) => Number(state.baseAttributes?.[attributeName]) > 0);
+  if (state.assessmentApplied && hasAssignedBaseAttributes) {
     return false;
   }
 
@@ -1017,28 +1204,32 @@ function applyStartingProfileFromUserMetadata() {
     }
   }
 
+  const startingPoints = startingProfile.startingPoints;
   const startingAttributes = startingProfile.startingAttributes;
-  const hasStartingAttributes = startingAttributes && typeof startingAttributes === 'object';
+  state.baseAttributes = state.baseAttributes && typeof state.baseAttributes === 'object'
+    ? { ...createDefaultBaseAttributes(), ...state.baseAttributes }
+    : createDefaultBaseAttributes();
 
-  const hasAnyAttributeProgress = ATTRIBUTE_NAMES.some((attributeName) => Number(state.attributes?.[attributeName]) > 0);
-  const isFreshCharacter = (Number(state.xp) || 0) === 0
-    && (Array.isArray(state.history) ? state.history.length === 0 : true)
-    && !hasAnyAttributeProgress;
+  ATTRIBUTE_NAMES.forEach((attributeName) => {
+    const fromPoints = Number(startingPoints?.[attributeName]);
+    const fromAttributes = Number(startingAttributes?.[attributeName]);
 
-  if (isFreshCharacter && hasStartingAttributes) {
-    state.attributes = state.attributes || {};
-    ATTRIBUTE_NAMES.forEach((attributeName) => {
-      const metadataValue = Number(startingAttributes[attributeName]);
-      if (!Number.isFinite(metadataValue) || metadataValue <= 0) {
-        return;
-      }
-      const nextValue = Math.round(metadataValue);
-      if (nextValue > (Number(state.attributes[attributeName]) || 0)) {
-        state.attributes[attributeName] = nextValue;
-        changed = true;
-      }
-    });
-  }
+    let nextBase = 0;
+    if (Number.isFinite(fromPoints) && fromPoints > 0) {
+      nextBase = Math.round(fromPoints);
+    } else if (Number.isFinite(fromAttributes) && fromAttributes > 0) {
+      nextBase = fromAttributes > ATTRIBUTE_XP_PER_POINT
+        ? Math.round(fromAttributes / ATTRIBUTE_XP_PER_POINT)
+        : Math.round(fromAttributes);
+    }
+
+    nextBase = Math.max(0, Math.min(20, nextBase));
+
+    if (nextBase > 0 && nextBase !== Number(state.baseAttributes[attributeName] || 0)) {
+      state.baseAttributes[attributeName] = nextBase;
+      changed = true;
+    }
+  });
 
   if (!state.assessmentApplied) {
     state.assessmentApplied = true;
@@ -1069,6 +1260,38 @@ function showNotification(title, body) {
     body,
     tag: 'habit-check',
   });
+}
+
+function persistNotificationState() {
+  state.updatedAt = new Date().toISOString();
+  persistLocalState();
+  queueSupabaseSave();
+}
+
+function maybeNotifyLevelUp(level) {
+  const safeLevel = Number.isFinite(Number(level)) ? Number(level) : 0;
+  if (safeLevel <= (Number(state.lastNotifiedLevel) || 0)) {
+    return;
+  }
+
+  showNotification('Level up!', `You reached level ${safeLevel}. Keep the streak alive.`);
+  state.lastNotifiedLevel = safeLevel;
+  persistNotificationState();
+}
+
+function maybeNotifyAllTasksComplete(allRequiredDone) {
+  if (!allRequiredDone) {
+    return;
+  }
+
+  const today = getTodayKey();
+  if (state.lastAllTasksNotificationDate === today) {
+    return;
+  }
+
+  showNotification('Quests complete!', 'You finished all of today\'s tasks. Great work.');
+  state.lastAllTasksNotificationDate = today;
+  persistNotificationState();
 }
 
 function launchConfetti() {
@@ -1111,9 +1334,16 @@ function scheduleReminders() {
 
   reminderTimer = window.setTimeout(() => {
     const remaining = state.unconditionals.filter((task) => !task.done).length;
+    const moodPending = !state.mood;
+    const weightPending = !state.currentWeight;
+    const metaRemaining = (moodPending ? 1 : 0) + (weightPending ? 1 : 0);
+    const totalRemaining = remaining + metaRemaining;
+
     showNotification(
-      'Daily check-in',
-      remaining > 0 ? `You still have ${remaining} item${remaining === 1 ? '' : 's'} left today.` : 'Everything is done for the day.'
+      '9pm Quest Reminder',
+      totalRemaining > 0
+        ? `Log your quests for today. You still have ${totalRemaining} item${totalRemaining === 1 ? '' : 's'} left.`
+        : 'Log complete. You finished everything for today.'
     );
     scheduleReminders();
   }, eveningTime - now);
@@ -1129,12 +1359,26 @@ function scheduleReminders() {
       lastAwardedXp: 0,
       attribute: getFixedAttribute(task.text),
     }));
+    state.mood = '';
+    state.currentWeight = '';
     state.lastSeenDate = getTodayKey();
     saveState();
     render();
     showNotification('New day started', 'Your checklist has been reset for today.');
     scheduleReminders();
   }, midnightTime - now);
+}
+
+function ensureRemindersEnabledWhenPermitted() {
+  if (!('Notification' in window)) {
+    return;
+  }
+
+  if (Notification.permission === 'granted' && !state.reminderEnabled) {
+    state.reminderEnabled = true;
+    saveState();
+    scheduleReminders();
+  }
 }
 
 function calculateStreak(history) {
@@ -1162,9 +1406,35 @@ function toDateKey(date) {
   return `${year}-${month}-${day}`;
 }
 
+function renderMoodPicker() {
+  if (!moodPicker) return;
+
+  moodPicker.innerHTML = '';
+  moodOptions.forEach((option) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `mood-option${state.mood === option.value ? ' active' : ''}`;
+    button.textContent = option.value;
+    button.title = option.label;
+    button.setAttribute('aria-label', option.label);
+    button.setAttribute('aria-pressed', state.mood === option.value ? 'true' : 'false');
+    button.addEventListener('click', () => {
+      const nextMood = state.mood === option.value ? '' : option.value;
+      state.mood = nextMood;
+      upsertMoodLog(nextMood);
+      saveState();
+      render();
+      if (nextMood) {
+        launchConfetti();
+      }
+    });
+    moodPicker.appendChild(button);
+  });
+}
+
 function updateDailyMeta() {
-  moodSelect.value = state.mood || '';
   weightInput.value = state.currentWeight || '';
+  renderMoodPicker();
 }
 
 function saveWeightEntry() {
@@ -1234,12 +1504,8 @@ function renderDailyChecklist() {
     checkbox.addEventListener('change', () => {
       if (task.meta) {
         if (task.meta.key === 'mood') {
-          state.mood = checkbox.checked ? state.mood || '😐' : '';
-          if (!state.mood) {
-            moodSelect.value = '';
-          } else {
-            moodSelect.value = state.mood;
-          }
+          state.mood = checkbox.checked ? state.mood : '';
+          upsertMoodLog(state.mood);
         } else if (task.meta.key === 'weight') {
           if (!checkbox.checked) {
             state.currentWeight = '';
@@ -1312,6 +1578,7 @@ function renderDailyChecklist() {
         const parsed = stepsInput.value === '' ? '' : Number(stepsInput.value);
         const nextSteps = Number.isFinite(parsed) ? Math.max(0, Math.round(parsed)) : '';
         state.unconditionals[taskIndex].stepCount = nextSteps;
+        upsertStepsLog(nextSteps);
 
         const today = getTodayKey();
         const dailyTask = state.unconditionals[taskIndex];
@@ -1401,29 +1668,41 @@ function renderAttributeSummary() {
   if (!container) return;
 
   container.innerHTML = '';
+  container.className = 'attribute-summary attribute-shield-grid';
+  const shortNameByAttribute = {
+    Strength: 'STR',
+    Dexterity: 'DEX',
+    Wisdom: 'WIS',
+    Intelligence: 'INT',
+    Charisma: 'CHA',
+    Constitution: 'CON',
+  };
+
   ATTRIBUTE_NAMES.forEach((attribute) => {
     const xp = Number(state.attributes?.[attribute]) || 0;
-    const points = getAttributeLevel(xp);
-    const progress = getAttributeProgressPercent(xp);
+    const earnedPoints = getAttributeLevel(xp);
+    const basePoints = Math.max(0, Number(state.baseAttributes?.[attribute]) || 0);
+    const points = basePoints + earnedPoints;
 
-    const row = document.createElement('div');
-    row.className = 'attribute-row';
+    const tile = document.createElement('div');
+    tile.className = 'attribute-shield';
 
-    const label = document.createElement('div');
-    label.className = 'attribute-label';
-    label.textContent = `${attribute} • ${points} pts`;
+    const abbrev = document.createElement('span');
+    abbrev.className = 'attribute-shield-name';
+    abbrev.textContent = shortNameByAttribute[attribute] || attribute.slice(0, 3).toUpperCase();
 
-    const bar = document.createElement('div');
-    bar.className = 'attribute-bar';
+    const value = document.createElement('span');
+    value.className = 'attribute-shield-value';
+    value.textContent = `${points}`;
 
-    const fill = document.createElement('div');
-    fill.className = 'attribute-fill';
-    fill.style.width = `${progress}%`;
+    const fullName = document.createElement('span');
+    fullName.className = 'attribute-shield-full';
+    fullName.textContent = `${attribute} (${xp} XP)`;
 
-    bar.appendChild(fill);
-    row.appendChild(label);
-    row.appendChild(bar);
-    container.appendChild(row);
+    tile.appendChild(abbrev);
+    tile.appendChild(value);
+    tile.appendChild(fullName);
+    container.appendChild(tile);
   });
 }
 
@@ -1776,6 +2055,7 @@ function render() {
   const requiredDailyCount = state.unconditionals.length + dailyMetaRequirementCount;
   const completedRequiredCount = completed + (state.mood ? 1 : 0) + (state.currentWeight ? 1 : 0);
   const dailyPercent = requiredDailyCount ? Math.round((completedRequiredCount / requiredDailyCount) * 100) : 0;
+  const allRequiredDone = requiredDailyCount > 0 && completedRequiredCount >= requiredDailyCount;
 
   completedCountEl.textContent = `${completedRequiredCount}`;
   progressPercentEl.textContent = `${dailyPercent}%`;
@@ -1828,11 +2108,16 @@ function render() {
   renderDailyChecklist();
   renderConditionalChecklist();
   renderLongTermChecklists();
+  maybeAwardDailyCompletionAchievement(allRequiredDone);
+  maybeNotifyLevelUp(level);
+  maybeNotifyAllTasksComplete(allRequiredDone);
 }
 
 resetButton.addEventListener('click', () => {
   state.unconditionals = state.unconditionals.map((task) => ({ ...task, done: false, completedDate: '', attribute: getFixedAttribute(task.text) }));
   state.conditionals = state.conditionals.map((task) => ({ ...task, done: false, completedDate: '', xpEarned: 0, attribute: getFixedAttribute(task.text) }));
+  state.mood = '';
+  state.currentWeight = '';
   state.history = state.history.filter((day) => day !== getTodayKey());
   saveState();
   render();
@@ -1872,12 +2157,6 @@ notificationsButton.addEventListener('click', async () => {
   } else {
     reminderStatusEl.textContent = 'Notification permission was not granted.';
   }
-});
-
-moodSelect.addEventListener('change', () => {
-  state.mood = moodSelect.value;
-  saveState();
-  render();
 });
 
 weightSaveButton.addEventListener('click', () => {
@@ -2022,12 +2301,12 @@ async function initializeApp() {
     state = loadLocalState(currentUser);
     ensureStateShape();
     applyStartingProfileFromUserMetadata();
+    ensureRemindersEnabledWhenPermitted();
     updateAccountUi();
     showAppShell();
     scheduleReminders();
     render();
     await hydrateStateFromSupabase();
-    await hydrateSocialHubData();
     await syncAdapter.logReadWriteTest();
 
     syncAdapter.onAuthStateChange((session) => {

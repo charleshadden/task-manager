@@ -74,6 +74,52 @@ create table if not exists public.follows (
 	check (follower_id <> followee_id)
 );
 
+-- Leaderboard RPC (rank all users by XP from latest state)
+drop function if exists public.get_xp_leaderboard(int);
+
+create or replace function public.get_xp_leaderboard(row_limit int default 50)
+returns table (
+	rank bigint,
+	user_id uuid,
+	display_name text,
+	photo_url text,
+	xp integer
+)
+language sql
+security definer
+set search_path = public
+as $$
+	with latest as (
+		select
+			(hs.device_id)::uuid as user_id,
+			hs.state,
+			hs.updated_at
+		from public.habit_states hs
+		where hs.device_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+	),
+	scored as (
+		select
+			l.user_id,
+			coalesce(nullif(p.display_name, ''), split_part(au.email, '@', 1), 'Unknown Adventurer') as display_name,
+			coalesce(p.photo_url, '') as photo_url,
+			greatest(coalesce((l.state ->> 'xp')::int, 0), 0) as xp
+		from latest l
+		left join public.profiles p on p.user_id = l.user_id
+		left join auth.users au on au.id = l.user_id
+	)
+	select
+		row_number() over (order by s.xp desc, s.display_name asc, s.user_id asc) as rank,
+		s.user_id,
+		s.display_name,
+		s.photo_url,
+		s.xp
+	from scored s
+	order by rank asc
+	limit greatest(1, least(coalesce(row_limit, 50), 200));
+$$;
+
+grant execute on function public.get_xp_leaderboard(int) to authenticated;
+
 create table if not exists public.parties (
 	id uuid primary key default gen_random_uuid(),
 	owner_id uuid not null references auth.users(id) on delete cascade,
@@ -169,6 +215,60 @@ using (
 ```
 
 The app enforces a max of 6 members per party in client logic. If you want strict server-side enforcement, add a trigger that blocks inserts into `party_members` when a party already has 6 rows.
+
+## Profile photo upload setup
+
+To allow real image uploads (instead of URL-only), create a public Storage bucket and add bucket policies:
+
+```sql
+insert into storage.buckets (id, name, public)
+values ('profile-photos', 'profile-photos', true)
+on conflict (id) do update set public = excluded.public;
+
+drop policy if exists "profile_photos_public_read" on storage.objects;
+drop policy if exists "profile_photos_upload_own" on storage.objects;
+drop policy if exists "profile_photos_update_own" on storage.objects;
+drop policy if exists "profile_photos_delete_own" on storage.objects;
+
+create policy "profile_photos_public_read"
+on storage.objects
+for select
+to public
+using (bucket_id = 'profile-photos');
+
+create policy "profile_photos_upload_own"
+on storage.objects
+for insert
+to authenticated
+with check (
+	bucket_id = 'profile-photos'
+	and split_part(name, '/', 1) = auth.uid()::text
+);
+
+create policy "profile_photos_update_own"
+on storage.objects
+for update
+to authenticated
+using (
+	bucket_id = 'profile-photos'
+	and split_part(name, '/', 1) = auth.uid()::text
+)
+with check (
+	bucket_id = 'profile-photos'
+	and split_part(name, '/', 1) = auth.uid()::text
+);
+
+create policy "profile_photos_delete_own"
+on storage.objects
+for delete
+to authenticated
+using (
+	bucket_id = 'profile-photos'
+	and split_part(name, '/', 1) = auth.uid()::text
+);
+```
+
+This lets every signed-in user upload only to their own folder path (their auth user id), while keeping profile images publicly readable for avatars.
 
 ## Run locally
 

@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#4f46e5" />
+    <link rel="stylesheet" href="/styles.css?v=13" />
+    <title>Profile | Habit Check</title>
+  </head>
+  <body>
+    <header class="brand-banner">
+      <a href="/index.html" class="brand-chip" aria-label="CHZZTRCKR home">
+        <img src="/assets/chzztrckr-logo.svg" class="brand-logo" alt="" />
+        <span class="brand-wordmark">
+          <span class="brand-title">CHZZTRCKR</span>
+          <span class="brand-sub">Adventurer's Guild</span>
+        </span>
+      </a>
+      <a href="/profile.html" class="brand-profile-bubble" aria-label="Open profile">
+        <img id="globalProfileAvatarImage" class="brand-profile-image" alt="Profile" hidden />
+        <span id="globalProfileAvatarFallback" class="brand-profile-fallback">A</span>
+      </a>
+    </header>
+    <div id="profileBootStatus" class="auth-gate">Checking your account...</div>
+    <main class="app-shell" id="profileShell" hidden>
+      <div class="account-bar">
+        <p id="profileAccountEmail" class="status-text">Checking account...</p>
+        <div class="account-actions">
+          <a href="/index.html" class="secondary-button link-button">Quests</a>
+          <a href="/summary.html" class="secondary-button link-button">Summary</a>
+          <a href="/social.html" class="secondary-button link-button">Social</a>
+          <a href="/achievements.html" class="secondary-button link-button">Achievements</a>
+          <a href="/leaderboard.html" class="secondary-button link-button">Leaderboard</a>
+          <button id="profileLogoutButton" type="button" class="secondary-button">Log out</button>
+        </div>
+      </div>
+
+      <header class="hero character-hero">
+        <div class="hero-intro">
+          <p class="eyebrow">Adventurer Identity</p>
+          <h1>Profile</h1>
+          <p class="subtitle">Edit your display name, profile photo, and personal bio.</p>
+        </div>
+        <div class="hero-stats">
+          <div class="hero-stat">
+            <span class="hero-stat-label">Class</span>
+            <span class="hero-stat-value" id="profileClassName">Fighter</span>
+          </div>
+          <div class="hero-stat">
+            <span class="hero-stat-label">Archetype</span>
+            <span class="hero-stat-value" id="profileArchetype">Champion</span>
+          </div>
+          <div class="hero-stat">
+            <span class="hero-stat-label">Level</span>
+            <span class="hero-stat-value" id="profileLevel">0</span>
+          </div>
+        </div>
+      </header>
+
+      <section class="card social-card">
+        <div class="card-header">
+          <h2>Public Profile</h2>
+        </div>
+        <div class="profile-editor">
+          <div class="profile-avatar-wrap">
+            <img id="profilePhotoPreview" class="profile-avatar" alt="Profile photo" hidden />
+            <div id="profilePhotoFallback" class="profile-avatar-fallback">A</div>
+          </div>
+          <div class="profile-fields">
+            <label class="social-field">
+              <span>Display name</span>
+              <input id="profileDisplayNameInput" type="text" maxlength="40" placeholder="Your adventurer name" />
+            </label>
+            <label class="social-field">
+              <span>Photo URL</span>
+              <input id="profilePhotoUrlInput" type="url" placeholder="https://..." />
+            </label>
+            <label class="social-field">
+              <span>Upload photo</span>
+              <input id="profilePhotoFileInput" type="file" accept="image/*" />
+            </label>
+            <div id="profileDropZone" class="photo-drop-zone" role="button" tabindex="0" aria-label="Drop profile photo here or click to choose a file">
+              Drop an image here or click to choose a file
+            </div>
+            <button id="uploadPhotoButton" type="button" class="secondary-button">Upload selected photo</button>
+            <label class="social-field">
+              <span>Bio</span>
+              <textarea id="profileBioInput" rows="4" maxlength="280" placeholder="Write a short bio for your party and followers..."></textarea>
+            </label>
+            <button id="saveProfileButton" type="button">Save profile</button>
+            <p id="profileStatus" class="status-text">Your profile is visible to followers and parties.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="/scripts/setup-supabase.js?v=8"></script>
+    <script type="module" src="/scripts/top-avatar.js?v=2"></script>
+    <script type="module" src="/scripts/profile.js?v=3"></script>
+  </body>
+</html>

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#4f46e5" />
+    <link rel="stylesheet" href="/styles.css?v=13" />
+    <title>Social | Habit Check</title>
+  </head>
+  <body>
+    <header class="brand-banner">
+      <a href="/index.html" class="brand-chip" aria-label="CHZZTRCKR home">
+        <img src="/assets/chzztrckr-logo.svg" class="brand-logo" alt="" />
+        <span class="brand-wordmark">
+          <span class="brand-title">CHZZTRCKR</span>
+          <span class="brand-sub">Adventurer's Guild</span>
+        </span>
+      </a>
+      <a href="/profile.html" class="brand-profile-bubble" aria-label="Open profile">
+        <img id="globalProfileAvatarImage" class="brand-profile-image" alt="Profile" hidden />
+        <span id="globalProfileAvatarFallback" class="brand-profile-fallback">A</span>
+      </a>
+    </header>
+    <div id="socialBootStatus" class="auth-gate">Checking your account...</div>
+    <main class="app-shell" id="socialShell" hidden>
+      <div class="account-bar">
+        <p id="socialAccountEmail" class="status-text">Checking account...</p>
+        <div class="account-actions">
+          <a href="/index.html" class="secondary-button link-button">Quests</a>
+          <a href="/summary.html" class="secondary-button link-button">Summary</a>
+          <a href="/profile.html" class="secondary-button link-button">Profile</a>
+          <a href="/achievements.html" class="secondary-button link-button">Achievements</a>
+          <a href="/leaderboard.html" class="secondary-button link-button">Leaderboard</a>
+          <button id="socialLogoutButton" type="button" class="secondary-button">Log out</button>
+        </div>
+      </div>
+
+      <header class="hero character-hero">
+        <div class="hero-intro">
+          <p class="eyebrow">Party Finder</p>
+          <h1>Social & Party Management</h1>
+          <p class="subtitle">Follow adventurers, manage your party memberships, and recruit your six-person crew.</p>
+        </div>
+      </header>
+
+      <section class="card social-card">
+        <div class="card-header">
+          <h2>Social Hub</h2>
+        </div>
+        <p id="socialStatus" class="status-text">Build your party. Odds of survival are better with a crew.</p>
+        <div class="social-search-row">
+          <input id="followSearchInput" type="text" placeholder="Search adventurers by display name" />
+          <button id="followSearchButton" type="button">Search</button>
+        </div>
+        <ul id="followSearchResults" class="social-list"></ul>
+        <div class="social-columns">
+          <div>
+            <h3>Following</h3>
+            <ul id="followingList" class="social-list"></ul>
+          </div>
+          <div>
+            <h3>Followers</h3>
+            <ul id="followersList" class="social-list"></ul>
+          </div>
+        </div>
+        <div class="party-controls">
+          <label class="social-field">
+            <span>Create party</span>
+            <div class="social-inline">
+              <input id="createPartyNameInput" type="text" maxlength="60" placeholder="Party name" />
+              <button id="createPartyButton" type="button">Create</button>
+            </div>
+          </label>
+          <label class="social-field">
+            <span>Join by party ID</span>
+            <div class="social-inline">
+              <input id="joinPartyIdInput" type="text" placeholder="Paste party ID" />
+              <button id="joinPartyButton" type="button">Join</button>
+            </div>
+          </label>
+          <p class="status-text">Party size is capped at 6 members.</p>
+        </div>
+        <ul id="partyList" class="social-list"></ul>
+      </section>
+    </main>
+
+    <script type="module" src="/scripts/setup-supabase.js?v=8"></script>
+    <script type="module" src="/scripts/top-avatar.js?v=2"></script>
+    <script type="module" src="/scripts/social.js?v=1"></script>
+  </body>
+</html>

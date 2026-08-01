@@ -11,16 +11,33 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <link rel="manifest" href="/manifest.json" />
-    <link rel="stylesheet" href="/styles.css?v=9" />
+    <link rel="stylesheet" href="/styles.css?v=13" />
     <title>Habit Check</title>
   </head>
   <body>
+    <header class="brand-banner">
+      <a href="/index.html" class="brand-chip" aria-label="CHZZTRCKR home">
+        <img src="/assets/chzztrckr-logo.svg" class="brand-logo" alt="" />
+        <span class="brand-wordmark">
+          <span class="brand-title">CHZZTRCKR</span>
+          <span class="brand-sub">Adventurer's Guild</span>
+        </span>
+      </a>
+      <a href="/profile.html" class="brand-profile-bubble" aria-label="Open profile">
+        <img id="globalProfileAvatarImage" class="brand-profile-image" alt="Profile" hidden />
+        <span id="globalProfileAvatarFallback" class="brand-profile-fallback">A</span>
+      </a>
+    </header>
     <div id="appBootStatus" class="auth-gate">Checking your account...</div>
     <main class="app-shell" id="appShell" hidden>
       <div class="account-bar">
         <p id="accountEmail" class="status-text">Checking account...</p>
         <div class="account-actions">
+          <a href="/profile.html" class="secondary-button link-button">Profile</a>
+          <a href="/social.html" class="secondary-button link-button">Social</a>
           <a href="/summary.html" class="secondary-button link-button">Summary</a>
+          <a href="/achievements.html" class="secondary-button link-button">Achievements</a>
+          <a href="/leaderboard.html" class="secondary-button link-button">Leaderboard</a>
           <button id="logoutButton" type="button" class="secondary-button">Log out</button>
         </div>
       </div>
@@ -79,70 +96,6 @@
         <div id="attributeSummary" class="attribute-summary"></div>
       </section>
 
-      <section class="card social-card">
-        <div class="card-header">
-          <h2>Adventurer Profile</h2>
-        </div>
-        <div class="profile-editor">
-          <div class="profile-avatar-wrap">
-            <img id="profilePhotoPreview" class="profile-avatar" alt="Profile photo" hidden />
-            <div id="profilePhotoFallback" class="profile-avatar-fallback">A</div>
-          </div>
-          <div class="profile-fields">
-            <label class="social-field">
-              <span>Display name</span>
-              <input id="profileDisplayNameInput" type="text" maxlength="40" placeholder="Your adventurer name" />
-            </label>
-            <label class="social-field">
-              <span>Photo URL</span>
-              <input id="profilePhotoUrlInput" type="url" placeholder="https://..." />
-            </label>
-            <button id="saveProfileButton" type="button">Save profile</button>
-            <p id="profileStatus" class="status-text">Your profile is visible to followers and parties.</p>
-          </div>
-        </div>
-      </section>
-
-      <section class="card social-card">
-        <div class="card-header">
-          <h2>Social Hub</h2>
-        </div>
-        <p id="socialStatus" class="status-text">Build your party. Odds of survival are better with a crew.</p>
-        <div class="social-search-row">
-          <input id="followSearchInput" type="text" placeholder="Search adventurers by display name" />
-          <button id="followSearchButton" type="button">Search</button>
-        </div>
-        <ul id="followSearchResults" class="social-list"></ul>
-        <div class="social-columns">
-          <div>
-            <h3>Following</h3>
-            <ul id="followingList" class="social-list"></ul>
-          </div>
-          <div>
-            <h3>Followers</h3>
-            <ul id="followersList" class="social-list"></ul>
-          </div>
-        </div>
-        <div class="party-controls">
-          <label class="social-field">
-            <span>Create party</span>
-            <div class="social-inline">
-              <input id="createPartyNameInput" type="text" maxlength="60" placeholder="Party name" />
-              <button id="createPartyButton" type="button">Create</button>
-            </div>
-          </label>
-          <label class="social-field">
-            <span>Join by party ID</span>
-            <div class="social-inline">
-              <input id="joinPartyIdInput" type="text" placeholder="Paste party ID" />
-              <button id="joinPartyButton" type="button">Join</button>
-            </div>
-          </label>
-          <p class="status-text">Party size is capped at 6 members.</p>
-        </div>
-        <ul id="partyList" class="social-list"></ul>
-      </section>
-
       <section class="card">
         <div class="card-header">
           <h2>Daily Quests</h2>
@@ -156,15 +109,8 @@
         <p id="syncStatus" class="status-text">Checking Supabase sync.</p>
         <div class="daily-meta-card">
           <div class="daily-meta-row">
-            <label class="daily-meta-label" for="moodSelect">Mood</label>
-            <select id="moodSelect" class="daily-meta-input">
-              <option value="">Pick today&apos;s mood</option>
-              <option value="😄">😄 Happy</option>
-              <option value="😌">😌 Calm</option>
-              <option value="😐">😐 Neutral</option>
-              <option value="😔">😔 Low</option>
-              <option value="😤">😤 Stressed</option>
-            </select>
+            <span class="daily-meta-label">Mood</span>
+            <div id="moodPicker" class="mood-picker" role="group" aria-label="Select today's mood"></div>
           </div>
           <div class="daily-meta-row">
             <label class="daily-meta-label" for="weightInput">Weight</label>
@@ -188,7 +134,8 @@
       <div id="checklistSections" class="checklist-sections"></div>
     </main>
 
-    <script type="module" src="/scripts/setup-supabase.js?v=5"></script>
-    <script type="module" src="/app.js?v=11"></script>
+    <script type="module" src="/scripts/setup-supabase.js?v=8"></script>
+    <script type="module" src="/scripts/top-avatar.js?v=2"></script>
+    <script type="module" src="/app.js?v=20"></script>
   </body>
 </html>
