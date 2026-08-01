@@ -1,5 +1,6 @@
 const FATSECRET_TOKEN_URL = 'https://oauth.fatsecret.com/connect/token';
 const FATSECRET_API_URL = 'https://platform.fatsecret.com/rest/server.api';
+const FATSECRET_V3_SEARCH_URL = 'https://platform.fatsecret.com/rest/foods/search/v3';
 
 function toPositiveInt(value, fallback, max) {
   const parsed = Number(value);
@@ -78,6 +79,12 @@ async function searchFoods(token, query, limit) {
 
   const payload = await response.json();
   console.log('[FatSecret] search response keys', Object.keys(payload || {}));
+  if (payload?.error) {
+    const code = payload.error?.code || 'unknown';
+    const message = payload.error?.message || 'Unknown FatSecret API error';
+    console.warn('[FatSecret] legacy search error payload', { code, message });
+    throw new Error(`FatSecret API error (${code}): ${message}`);
+  }
   const legacyRows = payload?.foods?.food;
   const v3Rows = payload?.foods_search?.results?.food;
   const rows = legacyRows || v3Rows;
@@ -101,6 +108,46 @@ async function searchFoods(token, query, limit) {
       fat: Math.round(desc.fat || 0),
     };
   });
+}
+
+async function searchFoodsV3(token, query, limit) {
+  const params = new URLSearchParams();
+  params.set('search_expression', query);
+  params.set('max_results', String(limit));
+  params.set('page_number', '0');
+  params.set('format', 'json');
+
+  const response = await fetch(`${FATSECRET_V3_SEARCH_URL}?${params.toString()}`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`FatSecret v3 food search failed (${response.status}). ${detail}`);
+  }
+
+  const payload = await response.json();
+  console.log('[FatSecret] v3 search response keys', Object.keys(payload || {}));
+
+  if (payload?.error) {
+    const code = payload.error?.code || 'unknown';
+    const message = payload.error?.message || 'Unknown FatSecret v3 API error';
+    throw new Error(`FatSecret v3 API error (${code}): ${message}`);
+  }
+
+  const rows = payload?.foods_search?.results?.food;
+  const foods = Array.isArray(rows) ? rows : rows ? [rows] : [];
+
+  return foods.map((food) => ({
+    name: String(food?.food_name || 'Unknown food'),
+    calories: Math.round(Number(food?.food_description?.match(/Calories:\s*([\d.]+)/i)?.[1]) || 0),
+    protein: Math.round(Number(food?.food_description?.match(/Protein:\s*([\d.]+)/i)?.[1]) || 0),
+    carbs: Math.round(Number(food?.food_description?.match(/Carbs:\s*([\d.]+)/i)?.[1]) || 0),
+    fat: Math.round(Number(food?.food_description?.match(/Fat:\s*([\d.]+)/i)?.[1]) || 0),
+  }));
 }
 
 export default async function handler(req, res) {
@@ -132,7 +179,14 @@ export default async function handler(req, res) {
 
   try {
     const token = await getFatSecretToken(clientId, clientSecret);
-    const items = await searchFoods(token, query, limit);
+    let items = [];
+    try {
+      items = await searchFoods(token, query, limit);
+    } catch (legacyError) {
+      const legacyMessage = legacyError instanceof Error ? legacyError.message : 'Unknown legacy search error.';
+      console.warn('[FatSecret] legacy search failed, trying v3 fallback', { query, legacyMessage });
+      items = await searchFoodsV3(token, query, limit);
+    }
     console.log('[FatSecret] outgoing response', { query, count: items.length });
     res.status(200).json({ items });
   } catch (error) {
