@@ -396,8 +396,194 @@ button:hover {
   margin: 0;
 }
 
+.meal-dialog-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.meal-dialog-tab.active {
+  border-color: rgba(166, 112, 56, 0.6);
+  background: rgba(255, 236, 199, 0.7);
+  color: #5a3316;
+}
+
+.meal-dialog-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.meal-dialog-panel[hidden] {
+  display: none !important;
+}
+
 #addChecklistDialog .meal-dialog-content {
   gap: 12px;
+}
+
+.meal-item-builder {
+  border: 1px solid rgba(135, 91, 44, 0.2);
+  border-radius: 12px;
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.meal-item-builder-header {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #7b5433;
+}
+
+.meal-item-fields {
+  display: grid;
+  gap: 10px;
+}
+
+.meal-save-food-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: #7b5433;
+}
+
+.meal-save-food-option input {
+  width: 16px;
+  height: 16px;
+}
+
+.meal-item-fields[hidden],
+.social-field[hidden] {
+  display: none !important;
+}
+
+.meal-history-group {
+  align-items: flex-start;
+}
+
+.meal-history-range-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.meal-history-range-chip.active {
+  border-color: rgba(166, 112, 56, 0.6);
+  background: rgba(255, 236, 199, 0.7);
+  color: #5a3316;
+}
+
+.meal-history-chart {
+  min-height: 220px;
+  border: 1px solid rgba(135, 91, 44, 0.2);
+  border-radius: 12px;
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.meal-history-line-chart {
+  width: 100%;
+  height: 160px;
+}
+
+.meal-history-line-axis {
+  stroke: rgba(123, 84, 51, 0.28);
+  stroke-width: 1;
+}
+
+.meal-history-line-total,
+.meal-history-line-alcohol {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.meal-history-line-total {
+  stroke: #b96d2e;
+}
+
+.meal-history-line-alcohol {
+  stroke: #cf2a2a;
+}
+
+.meal-history-line-dot-total {
+  fill: #b96d2e;
+}
+
+.meal-history-line-dot-alcohol {
+  fill: #cf2a2a;
+}
+
+.meal-history-line-labels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(20px, 1fr));
+  gap: 4px;
+}
+
+.meal-history-line-label {
+  font-size: 0.62rem;
+  color: #7b5433;
+  text-align: center;
+  line-height: 1;
+}
+
+.meal-history-line-legend {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.meal-history-legend-item {
+  font-size: 0.74rem;
+  color: #7b5433;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.meal-history-legend-swatch {
+  width: 12px;
+  height: 3px;
+  border-radius: 99px;
+  display: inline-block;
+}
+
+.meal-history-legend-swatch-total {
+  background: #b96d2e;
+}
+
+.meal-history-legend-swatch-alcohol {
+  background: #cf2a2a;
+}
+
+.meal-history-chart-note {
+  margin: 0;
+  font-size: 0.74rem;
+  color: #7b5433;
+}
+
+.meal-history-group-wrap {
+  display: grid;
+  gap: 4px;
+}
+
+.meal-history-meal-total {
+  margin-top: 4px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #6b3d1f;
+}
+
+.meal-history-item-alcohol {
+  color: #b01f1f;
+  font-weight: 700;
 }
 
 .dialog-actions {
@@ -682,6 +868,13 @@ button:hover {
 }
 
 .social-field input {
+  border: 1px solid rgba(135, 91, 44, 0.24);
+  border-radius: 12px;
+  padding: 8px 10px;
+  background: #fff;
+}
+
+.social-field select {
   border: 1px solid rgba(135, 91, 44, 0.24);
   border-radius: 12px;
   padding: 8px 10px;

@@ -11,7 +11,7 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <link rel="manifest" href="/manifest.json" />
-    <link rel="stylesheet" href="/styles.css?v=16" />
+    <link rel="stylesheet" href="/styles.css?v=22" />
     <title>Habit Check</title>
   </head>
   <body>
@@ -141,20 +141,96 @@
     <dialog id="addMealDialog" class="meal-dialog">
       <form id="addMealForm" method="dialog" class="meal-dialog-content">
         <h3>Add meal</h3>
-        <label class="social-field">
-          <span>Meal</span>
-          <input id="mealNameInput" type="text" maxlength="40" placeholder="Breakfast, lunch, dinner, snack" required />
-        </label>
-        <label class="social-field">
-          <span>Food</span>
-          <input id="mealFoodInput" type="text" maxlength="80" placeholder="Food name" required />
-        </label>
-        <div class="goal-grid">
-          <input id="mealCaloriesInput" type="number" inputmode="numeric" min="0" placeholder="Calories" aria-label="Meal calories" />
-          <input id="mealProteinInput" type="number" inputmode="numeric" min="0" placeholder="Protein (g)" aria-label="Meal protein" />
-          <input id="mealCarbsInput" type="number" inputmode="numeric" min="0" placeholder="Carbs (g)" aria-label="Meal carbs" />
-          <input id="mealFatInput" type="number" inputmode="numeric" min="0" placeholder="Fat (g)" aria-label="Meal fat" />
+        <div class="meal-dialog-tabs" role="tablist" aria-label="Meal dialog tabs">
+          <button id="mealBuilderTabButton" type="button" class="secondary-button meal-dialog-tab active" role="tab" aria-selected="true">Build meal</button>
+          <button id="mealHistoryTabButton" type="button" class="secondary-button meal-dialog-tab" role="tab" aria-selected="false">History</button>
         </div>
+
+        <section id="mealBuilderPanel" class="meal-dialog-panel">
+          <label class="social-field">
+            <span>Entry mode</span>
+            <select id="mealTypeInput" required>
+              <option value="food">Food</option>
+              <option value="alcohol">Alcohol</option>
+            </select>
+          </label>
+
+          <label id="mealTypeCustomField" class="social-field">
+            <span>Meal label</span>
+            <input id="mealTypeCustomInput" type="text" maxlength="40" placeholder="Breakfast, lunch, dinner, snack" />
+          </label>
+
+          <div class="meal-item-builder">
+            <div class="meal-item-builder-header">Add food or drink item</div>
+
+            <div id="mealFoodFields" class="meal-item-fields">
+              <label class="social-field">
+                <span>Find food</span>
+                <input id="mealFoodSearchInput" type="text" maxlength="80" placeholder="Search saved and built-in foods" />
+              </label>
+              <p id="mealFoodSearchStatus" class="status-text">Search a food to add it quickly.</p>
+              <ul id="mealFoodSearchResults" class="social-list"></ul>
+
+              <label class="social-field">
+                <span>Food name</span>
+                <input id="mealItemNameInput" type="text" maxlength="80" placeholder="Food name" />
+              </label>
+              <div class="goal-grid">
+                <input id="mealItemCaloriesInput" type="number" inputmode="numeric" min="0" placeholder="Calories" aria-label="Food calories" />
+                <input id="mealItemProteinInput" type="number" inputmode="numeric" min="0" placeholder="Protein (g)" aria-label="Food protein" />
+                <input id="mealItemCarbsInput" type="number" inputmode="numeric" min="0" placeholder="Carbs (g)" aria-label="Food carbs" />
+                <input id="mealItemFatInput" type="number" inputmode="numeric" min="0" placeholder="Fat (g)" aria-label="Food fat" />
+              </div>
+              <label class="meal-save-food-option">
+                <input id="saveMealItemToMyFoodsCheckbox" type="checkbox" />
+                <span>Also save this food to My Foods</span>
+              </label>
+            </div>
+
+            <div id="mealAlcoholFields" class="meal-item-fields" hidden>
+              <label class="social-field">
+                <span>Drink type</span>
+                <select id="alcoholDrinkTypeInput">
+                  <option value="beer">Beer</option>
+                  <option value="wine">Wine</option>
+                  <option value="spirit">Liquor shot</option>
+                  <option value="cocktail">Cocktail</option>
+                  <option value="seltzer">Hard seltzer</option>
+                  <option value="cider">Cider</option>
+                </select>
+              </label>
+              <label class="social-field">
+                <span>How many drinks</span>
+                <input id="alcoholDrinkCountInput" type="number" inputmode="numeric" min="1" step="1" value="1" />
+              </label>
+            </div>
+
+            <button id="addMealItemButton" type="button" class="secondary-button">Add item to meal</button>
+          </div>
+
+          <p id="mealDialogStatus" class="status-text">Add at least one item to build your meal total.</p>
+          <p id="mealDraftTotals" class="status-text">Total: 0 kcal • P 0g • C 0g • F 0g</p>
+          <ul id="mealDraftItemsList" class="social-list"></ul>
+        </section>
+
+        <section id="mealHistoryPanel" class="meal-dialog-panel" hidden>
+          <label class="social-field">
+            <span>Day</span>
+            <input id="mealHistoryDateInput" type="date" />
+          </label>
+          <div class="meal-history-range-chips" role="group" aria-label="History range">
+            <button type="button" class="secondary-button meal-history-range-chip active" data-days="7">Last 7</button>
+            <button type="button" class="secondary-button meal-history-range-chip" data-days="14">Last 14</button>
+            <button type="button" class="secondary-button meal-history-range-chip" data-days="30">Last 30</button>
+          </div>
+          <p id="mealHistoryDailySummary" class="status-text">Daily total: 0 kcal • P 0g • C 0g • F 0g</p>
+          <p id="mealHistorySevenDaySummary" class="status-text">7-day total: 0 kcal • P 0g • C 0g • F 0g | Avg/day: 0 kcal • P 0g • C 0g • F 0g</p>
+          <p id="mealHistoryAlcoholSummary" class="status-text">Alcohol total: 0 kcal • P 0g • C 0g • F 0g | Avg/day: 0 kcal • P 0g • C 0g • F 0g</p>
+          <div id="mealHistoryChart" class="meal-history-chart" aria-label="Calorie history line chart"></div>
+          <p id="mealHistoryChartEmpty" class="status-text" hidden>No calorie data in this date range yet.</p>
+          <ul id="mealHistoryItemsList" class="social-list"></ul>
+        </section>
+
         <div class="dialog-actions">
           <button id="saveMealButton" type="submit">Save meal</button>
           <button id="cancelMealButton" type="button" class="secondary-button">Cancel</button>
@@ -182,6 +258,6 @@
 
     <script type="module" src="/scripts/setup-supabase.js?v=10"></script>
     <script type="module" src="/scripts/top-avatar.js?v=2"></script>
-    <script type="module" src="/app.js?v=31"></script>
+    <script type="module" src="/app.js?v=37"></script>
   </body>
 </html>
