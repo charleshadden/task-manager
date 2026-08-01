@@ -51,6 +51,8 @@ async function getFatSecretToken(clientId, clientSecret) {
     throw new Error('FatSecret token response missing access_token.');
   }
 
+  console.log('[FatSecret] token acquired');
+
   return token;
 }
 
@@ -75,8 +77,19 @@ async function searchFoods(token, query, limit) {
   }
 
   const payload = await response.json();
-  const rows = payload?.foods?.food;
+  console.log('[FatSecret] search response keys', Object.keys(payload || {}));
+  const legacyRows = payload?.foods?.food;
+  const v3Rows = payload?.foods_search?.results?.food;
+  const rows = legacyRows || v3Rows;
   const foods = Array.isArray(rows) ? rows : rows ? [rows] : [];
+
+  console.log('[FatSecret] parsed rows', {
+    query,
+    limit,
+    hasLegacyRows: Boolean(legacyRows),
+    hasV3Rows: Boolean(v3Rows),
+    count: foods.length,
+  });
 
   return foods.map((food) => {
     const desc = parseFoodDescription(food?.food_description);
@@ -99,6 +112,8 @@ export default async function handler(req, res) {
   const query = String(req.query?.query || '').trim();
   const limit = toPositiveInt(req.query?.limit, 8, 20);
 
+  console.log('[FatSecret] incoming request', { method: req.method, query, limit });
+
   if (!query) {
     res.status(400).json({ error: 'query is required', items: [] });
     return;
@@ -118,9 +133,11 @@ export default async function handler(req, res) {
   try {
     const token = await getFatSecretToken(clientId, clientSecret);
     const items = await searchFoods(token, query, limit);
+    console.log('[FatSecret] outgoing response', { query, count: items.length });
     res.status(200).json({ items });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown FatSecret integration error.';
+    console.error('[FatSecret] route error', { query, message });
     res.status(502).json({ error: message, items: [] });
   }
 }
