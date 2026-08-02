@@ -9,11 +9,11 @@
   </head>
   <body>
     <header class="brand-banner">
-      <a href="/index.html" class="brand-chip" aria-label="CHZZTRCKR home">
+      <a href="/index.html" class="brand-chip" aria-label="Habit Check home">
         <img src="/assets/chzztrckr-logo.svg" class="brand-logo" alt="" />
         <span class="brand-wordmark">
-          <span class="brand-title">CHZZTRCKR</span>
-          <span class="brand-sub">Adventurer's Guild</span>
+          <span class="brand-title">HABIT CHECK</span>
+          <span class="brand-sub">Daily Tracker</span>
         </span>
       </a>
       <a href="/profile.html" class="brand-profile-bubble" aria-label="Open profile">
@@ -26,34 +26,17 @@
       <div class="account-bar">
         <p id="profileAccountEmail" class="status-text">Checking account...</p>
         <div class="account-actions">
-          <a href="/index.html" class="secondary-button link-button">Quests</a>
+          <a href="/index.html" class="secondary-button link-button">Tracker</a>
           <a href="/summary.html" class="secondary-button link-button">Summary</a>
-          <a href="/social.html" class="secondary-button link-button">Social</a>
-          <a href="/achievements.html" class="secondary-button link-button">Achievements</a>
-          <a href="/leaderboard.html" class="secondary-button link-button">Leaderboard</a>
           <button id="profileLogoutButton" type="button" class="secondary-button">Log out</button>
         </div>
       </div>
 
       <header class="hero character-hero">
         <div class="hero-intro">
-          <p class="eyebrow">Adventurer Identity</p>
+          <p class="eyebrow">Account</p>
           <h1>Profile</h1>
-          <p class="subtitle">Edit your display name, profile photo, and personal bio.</p>
-        </div>
-        <div class="hero-stats">
-          <div class="hero-stat">
-            <span class="hero-stat-label">Class</span>
-            <span class="hero-stat-value" id="profileClassName">Fighter</span>
-          </div>
-          <div class="hero-stat">
-            <span class="hero-stat-label">Archetype</span>
-            <span class="hero-stat-value" id="profileArchetype">Champion</span>
-          </div>
-          <div class="hero-stat">
-            <span class="hero-stat-label">Level</span>
-            <span class="hero-stat-value" id="profileLevel">0</span>
-          </div>
+          <p class="subtitle">Edit your display name, photo, and personal settings.</p>
         </div>
       </header>
 
@@ -68,8 +51,16 @@
           </div>
           <div class="profile-fields">
             <label class="social-field">
+              <span>Theme</span>
+              <select id="profileThemeSelect" aria-label="Theme preference">
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+                <option value="synthwave">Synthwave</option>
+              </select>
+            </label>
+            <label class="social-field">
               <span>Display name</span>
-              <input id="profileDisplayNameInput" type="text" maxlength="40" placeholder="Your adventurer name" />
+              <input id="profileDisplayNameInput" type="text" maxlength="40" placeholder="Your name" />
             </label>
             <label class="social-field">
               <span>Photo URL</span>
@@ -85,7 +76,7 @@
             <button id="uploadPhotoButton" type="button" class="secondary-button">Upload selected photo</button>
             <label class="social-field">
               <span>Bio</span>
-              <textarea id="profileBioInput" rows="4" maxlength="280" placeholder="Write a short bio for your party and followers..."></textarea>
+              <textarea id="profileBioInput" rows="4" maxlength="280" placeholder="Write a short bio..."></textarea>
             </label>
             <div class="social-field">
               <span>Daily macro goals</span>
@@ -97,14 +88,15 @@
               </div>
             </div>
             <button id="saveProfileButton" type="button">Save profile</button>
-            <p id="profileStatus" class="status-text">Your profile is visible to followers and parties.</p>
+            <p id="profileStatus" class="status-text">Your profile settings are saved to your account.</p>
           </div>
         </div>
       </section>
     </main>
 
+    <script src="/scripts/theme.js?v=1"></script>
     <script type="module" src="/scripts/setup-supabase.js?v=10"></script>
     <script type="module" src="/scripts/top-avatar.js?v=2"></script>
-    <script type="module" src="/scripts/profile.js?v=4"></script>
+    <script type="module" src="/scripts/profile.js?v=6"></script>
   </body>
 </html>

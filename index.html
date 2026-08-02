@@ -11,16 +11,16 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <link rel="manifest" href="/manifest.json" />
-    <link rel="stylesheet" href="/styles.css?v=22" />
+    <link rel="stylesheet" href="/styles.css?v=25" />
     <title>Habit Check</title>
   </head>
   <body>
     <header class="brand-banner">
-      <a href="/index.html" class="brand-chip" aria-label="CHZZTRCKR home">
+      <a href="/index.html" class="brand-chip" aria-label="Habit Check home">
         <img src="/assets/chzztrckr-logo.svg" class="brand-logo" alt="" />
         <span class="brand-wordmark">
-          <span class="brand-title">CHZZTRCKR</span>
-          <span class="brand-sub">Adventurer's Guild</span>
+          <span class="brand-title">HABIT CHECK</span>
+          <span class="brand-sub">Daily Tracker</span>
         </span>
       </a>
       <a href="/profile.html" class="brand-profile-bubble" aria-label="Open profile">
@@ -34,37 +34,21 @@
         <p id="accountEmail" class="status-text">Checking account...</p>
         <div class="account-actions">
           <a href="/profile.html" class="secondary-button link-button">Profile</a>
-          <a href="/social.html" class="secondary-button link-button">Social</a>
           <a href="/summary.html" class="secondary-button link-button">Summary</a>
-          <a href="/achievements.html" class="secondary-button link-button">Achievements</a>
-          <a href="/leaderboard.html" class="secondary-button link-button">Leaderboard</a>
           <button id="logoutButton" type="button" class="secondary-button">Log out</button>
         </div>
       </div>
       <div class="theme-switcher" role="group" aria-label="Theme selector">
-        <button type="button" class="theme-option active" data-theme="fantasy">Fantasy</button>
-        <button type="button" class="theme-option" data-theme="girly-rpg">Girly RPG</button>
+        <button type="button" class="theme-option active" data-theme="light">Light</button>
+        <button type="button" class="theme-option" data-theme="dark">Dark</button>
+        <button type="button" class="theme-option" data-theme="synthwave">Synthwave</button>
       </div>
 
       <header class="hero character-hero">
         <div class="hero-intro">
-          <p class="eyebrow">Adventurer's log</p>
-          <h1>Character Sheet</h1>
-          <p class="subtitle">A daily quest tracker for your habits, stats, and growth.</p>
-        </div>
-        <div class="hero-stats">
-          <div class="hero-stat">
-            <span class="hero-stat-label">Class</span>
-            <span class="hero-stat-value" id="heroClassName">Fighter</span>
-          </div>
-          <div class="hero-stat">
-            <span class="hero-stat-label">Archetype</span>
-            <span class="hero-stat-value" id="heroArchetype">Champion</span>
-          </div>
-          <div class="hero-stat">
-            <span class="hero-stat-label">Level</span>
-            <span class="hero-stat-value" id="heroLevel">0</span>
-          </div>
+          <p class="eyebrow">Daily Progress</p>
+          <h1>Habit Tracker</h1>
+          <p class="subtitle">Track your routines, meals, and consistency each day.</p>
         </div>
       </header>
 
@@ -81,24 +65,16 @@
           <span class="value" id="streakCount">0</span>
           <span class="label">streak</span>
         </div>
-        <div class="metric">
-          <span class="value" id="xpCount">0</span>
-          <span class="label">xp</span>
-        </div>
-        <div class="metric">
-          <span class="value" id="levelCount">0</span>
-          <span class="label">level</span>
-        </div>
       </section>
-      <p id="levelProgressText" class="status-text">0 / 10,000 to next level</p>
+      <p id="levelProgressText" class="status-text">Daily consistency over time matters more than perfection.</p>
 
-      <section class="card">
+      <section class="card" hidden>
         <div id="attributeSummary" class="attribute-summary"></div>
       </section>
 
       <section class="card">
         <div class="card-header">
-          <h2>Daily Quests</h2>
+          <h2>Daily Tasks</h2>
           <button id="resetButton" type="button">Reset today</button>
         </div>
         <p id="todayStatus" class="status-text">Start your first win.</p>
@@ -125,9 +101,9 @@
 
       <section class="card">
         <div class="card-header">
-          <h2>Adventure Goals</h2>
+          <h2>Extra Goals</h2>
         </div>
-        <p class="status-text">Complete these when you do them and earn XP based on effort.</p>
+        <p class="status-text">Optional goals you can complete anytime.</p>
         <ul id="conditionalList" class="task-list"></ul>
       </section>
 
@@ -256,8 +232,9 @@
       </form>
     </dialog>
 
+    <script src="/scripts/theme.js?v=1"></script>
     <script type="module" src="/scripts/setup-supabase.js?v=10"></script>
     <script type="module" src="/scripts/top-avatar.js?v=2"></script>
-    <script type="module" src="/app.js?v=37"></script>
+    <script type="module" src="/app.js?v=39"></script>
   </body>
 </html>

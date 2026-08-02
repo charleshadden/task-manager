@@ -1,13 +1,4 @@
 const STORAGE_KEY = 'habit-checklist-v1';
-const ATTRIBUTE_XP_PER_POINT = 1000;
-const LEVEL_XP_TIERS = [
-  { maxLevel: 5, xpPerLevel: 10000 },
-  { maxLevel: 10, xpPerLevel: 15000 },
-  { maxLevel: 15, xpPerLevel: 20000 },
-  { maxLevel: 20, xpPerLevel: 30000 },
-];
-const DEFAULT_CLASS = 'Fighter';
-const DEFAULT_ARCHETYPE = 'Champion';
 
 const profileShell = document.getElementById('profileShell');
 const profileBootStatus = document.getElementById('profileBootStatus');
@@ -23,13 +14,13 @@ const profileGoalCaloriesInput = document.getElementById('profileGoalCaloriesInp
 const profileGoalProteinInput = document.getElementById('profileGoalProteinInput');
 const profileGoalCarbsInput = document.getElementById('profileGoalCarbsInput');
 const profileGoalFatInput = document.getElementById('profileGoalFatInput');
+const profileThemeSelect = document.getElementById('profileThemeSelect');
 const saveProfileButton = document.getElementById('saveProfileButton');
 const profileStatus = document.getElementById('profileStatus');
 const profilePhotoPreview = document.getElementById('profilePhotoPreview');
 const profilePhotoFallback = document.getElementById('profilePhotoFallback');
-const profileClassName = document.getElementById('profileClassName');
-const profileArchetype = document.getElementById('profileArchetype');
-const profileLevel = document.getElementById('profileLevel');
+
+const VALID_THEMES = ['light', 'dark', 'synthwave'];
 
 let currentUser = null;
 let cachedState = {};
@@ -89,12 +80,12 @@ function getDisplayName() {
   if (fromProfile) return fromProfile;
 
   const fallback = String(currentUser?.email || '').split('@')[0];
-  return fallback || 'Adventurer';
+  return fallback || 'User';
 }
 
 function getInitial(text) {
   const first = String(text || '').trim().charAt(0);
-  return first ? first.toUpperCase() : 'A';
+  return first ? first.toUpperCase() : 'U';
 }
 
 function getStorageKeyForUser(user) {
@@ -142,22 +133,27 @@ function parseGoalInputValue(value) {
   return Math.max(0, Math.round(parsed));
 }
 
-function getXpForNextLevel(currentLevel) {
-  const nextLevel = currentLevel + 1;
-  const tier = LEVEL_XP_TIERS.find((entry) => nextLevel <= entry.maxLevel);
-  return tier ? tier.xpPerLevel : 30000;
+function normalizeTheme(value) {
+  const theme = String(value || '').trim();
+  return VALID_THEMES.includes(theme) ? theme : 'light';
 }
 
-function getLevelFromXp(xp) {
-  let remaining = Math.max(0, safeNumber(xp));
-  let level = 0;
+function getCurrentTheme() {
+  if (window.habitTheme && typeof window.habitTheme.get === 'function') {
+    return normalizeTheme(window.habitTheme.get());
+  }
+  return normalizeTheme(localStorage.getItem('habit-checklist-theme'));
+}
 
-  while (remaining >= getXpForNextLevel(level)) {
-    remaining -= getXpForNextLevel(level);
-    level += 1;
+function setCurrentTheme(nextTheme) {
+  const normalized = normalizeTheme(nextTheme);
+  if (window.habitTheme && typeof window.habitTheme.set === 'function') {
+    return normalizeTheme(window.habitTheme.set(normalized));
   }
 
-  return level;
+  document.body.dataset.theme = normalized;
+  localStorage.setItem('habit-checklist-theme', normalized);
+  return normalized;
 }
 
 function setDropZoneActive(active) {
@@ -269,6 +265,10 @@ function renderProfile() {
     profileGoalFatInput.value = goals.fat || '';
   }
 
+  if (profileThemeSelect && document.activeElement !== profileThemeSelect) {
+    profileThemeSelect.value = getCurrentTheme();
+  }
+
   if (profilePhotoPreview && profilePhotoFallback) {
     if (photoUrl) {
       profilePhotoPreview.src = photoUrl;
@@ -279,18 +279,6 @@ function renderProfile() {
       profilePhotoFallback.hidden = false;
       profilePhotoFallback.textContent = getInitial(displayName);
     }
-  }
-
-  if (profileClassName) {
-    profileClassName.textContent = String(cachedState.playerClass || DEFAULT_CLASS);
-  }
-
-  if (profileArchetype) {
-    profileArchetype.textContent = String(cachedState.playerArchetype || DEFAULT_ARCHETYPE);
-  }
-
-  if (profileLevel) {
-    profileLevel.textContent = String(getLevelFromXp(cachedState.xp));
   }
 
   if (profileAccountEmail) {
@@ -602,6 +590,12 @@ profileLogoutButton?.addEventListener('click', async () => {
   }
 
   redirectToLogin();
+});
+
+profileThemeSelect?.addEventListener('change', () => {
+  const selectedTheme = setCurrentTheme(profileThemeSelect.value);
+  profileThemeSelect.value = selectedTheme;
+  setStatus(`Theme updated to ${selectedTheme}.`);
 });
 
 initializeProfilePage();
