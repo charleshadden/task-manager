@@ -9,11 +9,11 @@
   </head>
   <body>
     <header class="brand-banner">
-      <a href="/index.html" class="brand-chip" aria-label="CHZZTRCKR home">
+      <a href="/index.html" class="brand-chip" aria-label="Habit Check home">
         <img src="/assets/chzztrckr-logo.svg" class="brand-logo" alt="" />
         <span class="brand-wordmark">
-          <span class="brand-title">CHZZTRCKR</span>
-          <span class="brand-sub">Adventurer's Guild</span>
+          <span class="brand-title">HABIT CHECK</span>
+          <span class="brand-sub">Daily Tracker</span>
         </span>
       </a>
       <a href="/profile.html" class="brand-profile-bubble" aria-label="Open profile">
@@ -26,42 +26,21 @@
       <div class="account-bar">
         <p id="summaryAccountEmail" class="status-text">Checking account...</p>
         <div class="account-actions">
-          <a href="/index.html" class="secondary-button link-button">Quests</a>
+          <a href="/index.html" class="secondary-button link-button">Tracker</a>
           <a href="/profile.html" class="secondary-button link-button">Profile</a>
-          <a href="/social.html" class="secondary-button link-button">Social</a>
-          <a href="/achievements.html" class="secondary-button link-button">Achievements</a>
-          <a href="/leaderboard.html" class="secondary-button link-button">Leaderboard</a>
           <button id="summaryLogoutButton" type="button" class="secondary-button">Log out</button>
         </div>
       </div>
 
       <header class="hero character-hero">
         <div class="hero-intro">
-          <p class="eyebrow">Campaign Ledger</p>
-          <h1>Adventure Summary</h1>
-          <p class="subtitle">Lifetime totals across daily quests, adventure goals, and character stats.</p>
-        </div>
-        <div class="hero-stats">
-          <div class="hero-stat">
-            <span class="hero-stat-label">Class</span>
-            <span class="hero-stat-value" id="summaryClassName">Fighter</span>
-          </div>
-          <div class="hero-stat">
-            <span class="hero-stat-label">Archetype</span>
-            <span class="hero-stat-value" id="summaryArchetype">Champion</span>
-          </div>
-          <div class="hero-stat">
-            <span class="hero-stat-label">Level</span>
-            <span class="hero-stat-value" id="summaryLevel">0</span>
-          </div>
+          <p class="eyebrow">Progress</p>
+          <h1>Summary</h1>
+          <p class="subtitle">Your totals and averages across daily tracking.</p>
         </div>
       </header>
 
       <section class="summary-card character-stats">
-        <div class="metric">
-          <span class="value" id="summaryXp">0</span>
-          <span class="label">total xp</span>
-        </div>
         <div class="metric">
           <span class="value" id="summaryCurrentStreak">0</span>
           <span class="label">current streak</span>
@@ -76,7 +55,7 @@
         </div>
         <div class="metric">
           <span class="value" id="summaryAdventureCompletions">0</span>
-          <span class="label">adventure completions</span>
+          <span class="label">extra goal completions</span>
         </div>
       </section>
 
@@ -113,28 +92,24 @@
           <span class="label">avg fat</span>
         </div>
       </section>
-      <p id="summaryProgressText" class="status-text">0 / 10,000 to next level</p>
+      <p id="summaryProgressText" class="status-text">Consistent tracking builds momentum.</p>
 
       <section class="card summary-section">
-        <div class="card-header"><h2>Attribute Totals</h2></div>
-        <ul id="summaryAttributes" class="summary-table-list"></ul>
-      </section>
-
-      <section class="card summary-section">
-        <div class="card-header"><h2>Adventure Goals Totals</h2></div>
+        <div class="card-header"><h2>Extra Goals Totals</h2></div>
         <ul id="summaryAdventures" class="summary-table-list"></ul>
       </section>
 
       <section class="card summary-section">
-        <div class="card-header"><h2>Daily Quest Totals</h2></div>
+        <div class="card-header"><h2>Daily Tasks Totals</h2></div>
         <ul id="summaryDailyQuests" class="summary-table-list"></ul>
       </section>
 
       <p id="summaryStatus" class="status-text">Loading summary...</p>
     </main>
 
+    <script src="/scripts/theme.js?v=1"></script>
     <script type="module" src="/scripts/setup-supabase.js?v=10"></script>
     <script type="module" src="/scripts/top-avatar.js?v=2"></script>
-    <script type="module" src="/scripts/summary.js?v=5"></script>
+    <script type="module" src="/scripts/summary.js?v=6"></script>
   </body>
 </html>

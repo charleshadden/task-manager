@@ -1,24 +1,37 @@
 :root {
   color-scheme: light;
-  --bg: #f4f7ff;
+  --bg: #f6f7f9;
   --card: #ffffff;
-  --text: #111827;
+  --text: #1f2937;
   --muted: #6b7280;
-  --accent: #4f46e5;
-  --accent-soft: #e0e7ff;
+  --accent: #2563eb;
+  --accent-soft: #dbeafe;
   --border: #e5e7eb;
   --success: #16a34a;
 }
 
-body[data-theme='girly-rpg'] {
-  --bg: #fff5fb;
-  --card: #fff7ff;
-  --text: #6b2c6d;
-  --muted: #9a5d98;
-  --accent: #f06fb3;
-  --accent-soft: #ffe7f5;
-  --border: #f4b0d9;
-  --success: #ff7fb9;
+body[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #000000;
+  --card: #1c1c1e;
+  --text: #f2f2f7;
+  --muted: #8e8e93;
+  --accent: #0a84ff;
+  --accent-soft: #2c2c2e;
+  --border: #3a3a3c;
+  --success: #30d158;
+}
+
+body[data-theme='synthwave'] {
+  color-scheme: dark;
+  --bg: #0b0620;
+  --card: rgba(23, 15, 52, 0.82);
+  --text: #f8f4ff;
+  --muted: #bcaee8;
+  --accent: #00f5ff;
+  --accent-soft: rgba(255, 0, 198, 0.18);
+  --border: rgba(0, 245, 255, 0.42);
+  --success: #5bff8a;
 }
 
 * {
@@ -28,7 +41,7 @@ body[data-theme='girly-rpg'] {
 body {
   margin: 0;
   font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: linear-gradient(135deg, #eef2ff, var(--bg));
+  background: var(--bg);
   color: var(--text);
   transition: background 180ms ease, color 180ms ease;
 }
@@ -50,17 +63,17 @@ body {
   padding: 8px 12px;
   border-radius: 999px;
   text-decoration: none;
-  border: 1px solid rgba(211, 170, 83, 0.4);
-  background: linear-gradient(135deg, rgba(31, 22, 17, 0.92), rgba(17, 11, 9, 0.9));
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border);
+  background: var(--card);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
 }
 
 .brand-logo {
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  border: 1px solid rgba(211, 170, 83, 0.55);
-  background: rgba(255, 248, 232, 0.08);
+  border: 1px solid var(--border);
+  background: #f3f4f6;
 }
 
 .brand-wordmark {
@@ -70,17 +83,17 @@ body {
 }
 
 .brand-title {
-  color: #f3d7a3;
+  color: var(--text);
   font-size: 0.96rem;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.08em;
   font-weight: 800;
-  font-family: "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 .brand-sub {
-  color: #d9b57a;
+  color: var(--muted);
   font-size: 0.62rem;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
@@ -120,11 +133,87 @@ body {
   color: #f3d7a3;
 }
 
-body[data-theme='girly-rpg'] {
+body[data-theme='dark'] {
+  background: var(--bg);
+}
+
+body[data-theme='dark'] .brand-chip,
+body[data-theme='dark'] .summary-card,
+body[data-theme='dark'] .card,
+body[data-theme='dark'] .task-item,
+body[data-theme='dark'] .daily-meta-card,
+body[data-theme='dark'] .meal-dialog {
+  background: var(--card);
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+body[data-theme='dark'] .brand-profile-bubble {
+  border-color: var(--border);
+  background: #2c2c2e;
+  box-shadow: none;
+}
+
+body[data-theme='dark'] .brand-profile-fallback {
+  color: var(--text);
+}
+
+body[data-theme='dark'] .brand-logo {
+  background: #2c2c2e;
+  border-color: var(--border);
+}
+
+body[data-theme='dark'] .metric {
+  background: var(--accent-soft);
+  border: 1px solid var(--border);
+}
+
+body[data-theme='dark'] .secondary-button,
+body[data-theme='dark'] #resetButton,
+body[data-theme='dark'] .icon-button {
+  background: #2c2c2e;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+body[data-theme='dark'] .daily-meta-input,
+body[data-theme='dark'] input,
+body[data-theme='dark'] textarea,
+body[data-theme='dark'] select,
+body[data-theme='dark'] .progress-input,
+body[data-theme='dark'] .priority-select,
+body[data-theme='dark'] .goal-grid input,
+body[data-theme='dark'] .steps-input,
+body[data-theme='dark'] .conditional-field-input,
+body[data-theme='dark'] .social-field input,
+body[data-theme='dark'] .social-field textarea,
+body[data-theme='dark'] .social-field select {
+  background: #2c2c2e;
+  color: var(--text);
+  border-color: var(--border);
+}
+
+body[data-theme='dark'] .daily-meta-input::placeholder,
+body[data-theme='dark'] input::placeholder,
+body[data-theme='dark'] textarea::placeholder {
+  color: var(--muted);
+}
+
+body[data-theme='dark'] .cup-emoji {
+  background: #2c2c2e;
+  border-color: var(--border);
+}
+
+body[data-theme='dark'] .task-item.done {
+  background: #16251b;
+  border-color: #225e35;
+}
+
+body[data-theme='synthwave'] {
   background:
-    radial-gradient(circle at top left, rgba(255, 192, 227, 0.55), transparent 28%),
-    radial-gradient(circle at bottom right, rgba(170, 227, 255, 0.55), transparent 30%),
-    linear-gradient(135deg, #fff5fb 0%, #ffe8f3 45%, #fef4ff 100%);
+    radial-gradient(circle at 18% 16%, rgba(255, 0, 198, 0.34), transparent 30%),
+    radial-gradient(circle at 85% 82%, rgba(0, 245, 255, 0.3), transparent 34%),
+    linear-gradient(145deg, #090317 0%, #12093a 46%, #070b20 100%);
 }
 
 button,
@@ -160,15 +249,120 @@ input {
   border-color: var(--accent);
 }
 
-body[data-theme='girly-rpg'] .theme-option {
+body[data-theme='dark'] .theme-option {
   background: rgba(255,255,255,0.8);
   color: var(--muted);
 }
 
-body[data-theme='girly-rpg'] .theme-option.active {
-  background: linear-gradient(135deg, #ff7fb9, #ffb4d6);
+body[data-theme='dark'] .theme-option.active {
+  background: var(--accent);
+  color: #0b1220;
+  border-color: var(--accent);
+}
+
+body[data-theme='synthwave'] .theme-option {
+  background: rgba(19, 11, 44, 0.8);
+  color: #f4e9ff;
+  border-color: rgba(255, 0, 198, 0.48);
+}
+
+body[data-theme='synthwave'] .theme-option.active {
+  background: linear-gradient(110deg, #00f5ff, #ff00c8);
+  color: #100a2a;
+  border-color: #00f5ff;
+  box-shadow: 0 0 0 1px rgba(0, 245, 255, 0.38), 0 0 20px rgba(0, 245, 255, 0.4);
+}
+
+body[data-theme='synthwave'] .brand-chip,
+body[data-theme='synthwave'] .summary-card,
+body[data-theme='synthwave'] .card {
+  border-color: rgba(0, 245, 255, 0.38);
+  box-shadow:
+    0 0 0 1px rgba(0, 245, 255, 0.22),
+    0 18px 36px rgba(2, 2, 14, 0.55),
+    inset 0 0 42px rgba(255, 0, 198, 0.08);
+}
+
+body[data-theme='synthwave'] .brand-chip {
+  background: linear-gradient(145deg, rgba(16, 11, 38, 0.9), rgba(9, 13, 34, 0.92));
+}
+
+body[data-theme='synthwave'] .brand-logo {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(0, 245, 255, 0.38);
+}
+
+body[data-theme='synthwave'] .brand-title {
+  color: #fef6ff;
+  text-shadow: 0 0 10px rgba(255, 0, 198, 0.6);
+}
+
+body[data-theme='synthwave'] .brand-sub {
+  color: #d4c7ff;
+}
+
+body[data-theme='synthwave'] .brand-profile-bubble {
+  border-color: rgba(0, 245, 255, 0.45);
+  background: linear-gradient(150deg, rgba(255, 0, 198, 0.68), rgba(0, 245, 255, 0.52));
+  box-shadow: 0 12px 26px rgba(4, 2, 21, 0.48);
+}
+
+body[data-theme='synthwave'] .brand-profile-fallback {
   color: #fff;
-  border-color: #ff7fb9;
+}
+
+body[data-theme='synthwave'] .metric {
+  background: linear-gradient(160deg, rgba(255, 0, 198, 0.16), rgba(0, 245, 255, 0.12));
+  border: 1px solid rgba(255, 0, 198, 0.32);
+}
+
+body[data-theme='synthwave'] button {
+  background: linear-gradient(110deg, #ff00c8, #00f5ff);
+  color: #100a2a;
+  box-shadow: 0 8px 20px rgba(0, 245, 255, 0.2);
+}
+
+body[data-theme='synthwave'] .secondary-button,
+body[data-theme='synthwave'] #resetButton,
+body[data-theme='synthwave'] .icon-button {
+  background: rgba(17, 16, 50, 0.92);
+  color: #7ff8ff;
+  border: 1px solid rgba(0, 245, 255, 0.32);
+}
+
+body[data-theme='synthwave'] .daily-meta-card,
+body[data-theme='synthwave'] .meal-dialog,
+body[data-theme='synthwave'] .task-item {
+  background: rgba(16, 13, 39, 0.9);
+  border-color: rgba(0, 245, 255, 0.28);
+}
+
+body[data-theme='synthwave'] .task-item:not(.done) .task-label {
+  color: #f8f4ff;
+  font-weight: 600;
+}
+
+body[data-theme='synthwave'] .task-item:not(.done) {
+  box-shadow: inset 0 0 0 1px rgba(255, 0, 198, 0.14);
+}
+
+body[data-theme='synthwave'] .task-item .icon-button {
+  color: #f4e9ff;
+}
+
+body[data-theme='synthwave'] .daily-meta-input,
+body[data-theme='synthwave'] input,
+body[data-theme='synthwave'] textarea,
+body[data-theme='synthwave'] select {
+  background: rgba(8, 12, 36, 0.92);
+  color: #f8f4ff;
+  border-color: rgba(255, 0, 198, 0.3);
+}
+
+body[data-theme='synthwave'] .daily-meta-input::placeholder,
+body[data-theme='synthwave'] input::placeholder,
+body[data-theme='synthwave'] textarea::placeholder {
+  color: #9f8fcb;
 }
 
 .hero {

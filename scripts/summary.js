@@ -1,22 +1,9 @@
 const STORAGE_KEY = 'habit-checklist-v1';
-const LEVEL_XP_TIERS = [
-  { maxLevel: 5, xpPerLevel: 10000 },
-  { maxLevel: 10, xpPerLevel: 15000 },
-  { maxLevel: 15, xpPerLevel: 20000 },
-  { maxLevel: 20, xpPerLevel: 30000 },
-];
-const ATTRIBUTE_XP_PER_POINT = 10000;
-const DEFAULT_CLASS = 'Fighter';
-const DEFAULT_ARCHETYPE = 'Champion';
-const ATTRIBUTE_NAMES = ['Strength', 'Dexterity', 'Wisdom', 'Intelligence', 'Charisma', 'Constitution'];
 
 const summaryShell = document.getElementById('summaryShell');
 const summaryBootStatus = document.getElementById('summaryBootStatus');
 const summaryAccountEmail = document.getElementById('summaryAccountEmail');
 const summaryLogoutButton = document.getElementById('summaryLogoutButton');
-const summaryClassName = document.getElementById('summaryClassName');
-const summaryArchetype = document.getElementById('summaryArchetype');
-const summaryLevel = document.getElementById('summaryLevel');
 const summaryXp = document.getElementById('summaryXp');
 const summaryCurrentStreak = document.getElementById('summaryCurrentStreak');
 const summaryBestStreak = document.getElementById('summaryBestStreak');
@@ -30,7 +17,6 @@ const summaryAverageProtein = document.getElementById('summaryAverageProtein');
 const summaryAverageCarbs = document.getElementById('summaryAverageCarbs');
 const summaryAverageFat = document.getElementById('summaryAverageFat');
 const summaryProgressText = document.getElementById('summaryProgressText');
-const summaryAttributes = document.getElementById('summaryAttributes');
 const summaryAdventures = document.getElementById('summaryAdventures');
 const summaryDailyQuests = document.getElementById('summaryDailyQuests');
 const summaryStatus = document.getElementById('summaryStatus');
@@ -143,35 +129,6 @@ function calculateBestStreak(history) {
   return best;
 }
 
-function getXpForNextLevel(currentLevel) {
-  const nextLevel = currentLevel + 1;
-  const tier = LEVEL_XP_TIERS.find((entry) => nextLevel <= entry.maxLevel);
-  return tier ? tier.xpPerLevel : 30000;
-}
-
-function getXpAtLevelStart(level) {
-  let total = 0;
-  for (let current = 0; current < level; current += 1) {
-    total += getXpForNextLevel(current);
-  }
-  return total;
-}
-
-function getLevelFromXp(xp) {
-  let remaining = Math.max(0, safeNumber(xp));
-  let level = 0;
-
-  while (remaining >= getXpForNextLevel(level)) {
-    remaining -= getXpForNextLevel(level);
-    level += 1;
-  }
-
-  return level;
-}
-
-function getAttributePoints(attributeXp) {
-  return Math.floor(safeNumber(attributeXp) / ATTRIBUTE_XP_PER_POINT);
-}
 
 function ensureTotalsShape(state) {
   const totals = state?.totals && typeof state.totals === 'object' ? state.totals : {};
@@ -227,7 +184,7 @@ function renderRows(container, rows) {
 
     const stats = document.createElement('span');
     stats.className = 'summary-row-stats';
-    stats.textContent = `${formatNumber(row.completions)} completions • ${formatNumber(row.xp)} XP`;
+    stats.textContent = `${formatNumber(row.completions)} completions`;
 
     item.appendChild(label);
     item.appendChild(stats);
@@ -235,66 +192,9 @@ function renderRows(container, rows) {
   });
 }
 
-function renderAttributes(container, attributes, baseAttributes) {
-  if (!container) return;
-  container.innerHTML = '';
-
-  const names = [...new Set([
-    ...ATTRIBUTE_NAMES,
-    ...Object.keys(attributes || {}),
-    ...Object.keys(baseAttributes || {}),
-  ])];
-
-  const entries = names.map((name) => {
-    const xp = safeNumber(attributes?.[name]);
-    const base = safeNumber(baseAttributes?.[name]);
-    const earned = getAttributePoints(xp);
-    return {
-      name,
-      xp,
-      base,
-      earned,
-      total: base + earned,
-    };
-  });
-
-  if (entries.length === 0) {
-    const empty = document.createElement('li');
-    empty.className = 'empty-state';
-    empty.textContent = 'No attribute progress yet.';
-    container.appendChild(empty);
-    return;
-  }
-
-  entries
-    .sort((a, b) => b.total - a.total || b.xp - a.xp || a.name.localeCompare(b.name))
-    .forEach((entry) => {
-      const item = document.createElement('li');
-      item.className = 'summary-row';
-
-      const label = document.createElement('span');
-      label.className = 'summary-row-label';
-      label.textContent = entry.name;
-
-      const stats = document.createElement('span');
-      stats.className = 'summary-row-stats';
-      stats.textContent = `${formatNumber(entry.total)} points (base ${formatNumber(entry.base)} + earned ${formatNumber(entry.earned)}) • ${formatNumber(entry.xp)} / ${formatNumber(ATTRIBUTE_XP_PER_POINT)} XP to next +1`;
-
-      item.appendChild(label);
-      item.appendChild(stats);
-      container.appendChild(item);
-    });
-}
-
 function renderSummary(state, user) {
   const safeState = state || {};
   const totals = ensureTotalsShape(safeState);
-
-  const overallXp = safeNumber(safeState.xp);
-  const level = getLevelFromXp(overallXp);
-  const levelStart = getXpAtLevelStart(level);
-  const xpNeeded = getXpForNextLevel(level);
-  const xpInLevel = Math.max(0, overallXp - levelStart);
 
   const history = Array.isArray(safeState.history) ? safeState.history : [];
   const currentStreak = calculateCurrentStreak(history);
@@ -311,20 +211,18 @@ function renderSummary(state, user) {
       id: taskId,
       label: adventureNameById[taskId] || taskId,
       completions: safeNumber(totals.adventureCompletions[taskId]),
-      xp: safeNumber(totals.adventureXpEarned[taskId]),
     }))
-    .filter((row) => row.completions > 0 || row.xp > 0)
-    .sort((a, b) => b.xp - a.xp || b.completions - a.completions || a.label.localeCompare(b.label));
+    .filter((row) => row.completions > 0)
+    .sort((a, b) => b.completions - a.completions || a.label.localeCompare(b.label));
 
   const dailyRows = Object.keys(totals.dailyTaskCompletions)
     .map((taskId) => ({
       id: taskId,
       label: dailyNameById[taskId] || taskId,
       completions: safeNumber(totals.dailyTaskCompletions[taskId]),
-      xp: safeNumber(totals.dailyTaskXpEarned[taskId]),
     }))
-    .filter((row) => row.completions > 0 || row.xp > 0)
-    .sort((a, b) => b.xp - a.xp || b.completions - a.completions || a.label.localeCompare(b.label));
+    .filter((row) => row.completions > 0)
+    .sort((a, b) => b.completions - a.completions || a.label.localeCompare(b.label));
 
   const adventureCompletionTotal = adventureRows.reduce((sum, row) => sum + row.completions, 0);
 
@@ -392,16 +290,7 @@ function renderSummary(state, user) {
     summaryAccountEmail.textContent = user?.email ? `Signed in as ${user.email}` : 'Signed in';
   }
 
-  if (summaryClassName) {
-    summaryClassName.textContent = safeState.playerClass || DEFAULT_CLASS;
-  }
-
-  if (summaryArchetype) {
-    summaryArchetype.textContent = safeState.playerArchetype || DEFAULT_ARCHETYPE;
-  }
-
-  if (summaryLevel) summaryLevel.textContent = `${level}`;
-  if (summaryXp) summaryXp.textContent = formatNumber(overallXp);
+  if (summaryXp) summaryXp.textContent = '0';
   if (summaryCurrentStreak) summaryCurrentStreak.textContent = `${currentStreak}`;
   if (summaryBestStreak) summaryBestStreak.textContent = `${bestStreak}`;
   if (summaryDailyCompletions) summaryDailyCompletions.textContent = formatNumber(totals.dailyCompletions);
@@ -429,10 +318,9 @@ function renderSummary(state, user) {
   }
 
   if (summaryProgressText) {
-    summaryProgressText.textContent = `${formatNumber(xpInLevel)} / ${formatNumber(xpNeeded)} to next level`;
+    summaryProgressText.textContent = 'Consistent tracking builds momentum.';
   }
 
-  renderAttributes(summaryAttributes, safeState.attributes || {}, safeState.baseAttributes || {});
   renderRows(summaryAdventures, adventureRows);
   renderRows(summaryDailyQuests, dailyRows);
 }
