@@ -1084,6 +1084,19 @@ button:hover {
   min-height: 88px;
 }
 
+.inline-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.86rem;
+  color: var(--text);
+}
+
+.inline-toggle input {
+  width: 16px;
+  height: 16px;
+}
+
 .photo-drop-zone {
   border: 2px dashed rgba(135, 91, 44, 0.35);
   border-radius: 12px;
@@ -1213,6 +1226,75 @@ button:hover {
 .cup-emoji.filled {
   background: rgba(95, 169, 255, 0.2);
   border-color: rgba(69, 130, 230, 0.45);
+}
+
+.tobacco-taper-slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(58px, 1fr));
+  gap: 6px;
+  width: 100%;
+  margin-top: 6px;
+}
+
+.cigarette-slot {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  padding: 6px 4px;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-height: 56px;
+  position: relative;
+}
+
+.cigarette-slot.filled {
+  background: rgba(22, 163, 74, 0.14);
+  border-color: rgba(22, 163, 74, 0.5);
+}
+
+.cigarette-slot.filled::before,
+.cigarette-slot.filled::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  top: 50%;
+  height: 2px;
+  background: rgba(22, 163, 74, 0.9);
+  border-radius: 999px;
+}
+
+.cigarette-slot.filled::before {
+  transform: rotate(30deg);
+}
+
+.cigarette-slot.filled::after {
+  transform: rotate(-30deg);
+}
+
+.cigarette-emoji {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.cigarette-time {
+  font-size: 0.66rem;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+
+body[data-theme='dark'] .cigarette-slot,
+body[data-theme='synthwave'] .cigarette-slot {
+  background: rgba(20, 20, 22, 0.9);
+}
+
+body[data-theme='synthwave'] .cigarette-slot {
+  border-color: rgba(255, 0, 198, 0.34);
+}
+
+body[data-theme='synthwave'] .cigarette-time {
+  color: #d8c8ff;
 }
 
 @media (max-width: 560px) {

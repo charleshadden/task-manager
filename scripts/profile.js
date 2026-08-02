@@ -15,12 +15,27 @@ const profileGoalProteinInput = document.getElementById('profileGoalProteinInput
 const profileGoalCarbsInput = document.getElementById('profileGoalCarbsInput');
 const profileGoalFatInput = document.getElementById('profileGoalFatInput');
 const profileThemeSelect = document.getElementById('profileThemeSelect');
+const profileTobaccoEnabledInput = document.getElementById('profileTobaccoEnabledInput');
+const profileTobaccoPlanSelect = document.getElementById('profileTobaccoPlanSelect');
 const saveProfileButton = document.getElementById('saveProfileButton');
 const profileStatus = document.getElementById('profileStatus');
 const profilePhotoPreview = document.getElementById('profilePhotoPreview');
 const profilePhotoFallback = document.getElementById('profilePhotoFallback');
 
 const VALID_THEMES = ['light', 'dark', 'synthwave'];
+
+function normalizeTobaccoPerDay(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 5;
+  return Math.max(1, Math.min(5, Math.round(parsed)));
+}
+
+function normalizeTobaccoTaperingSettings(settings) {
+  return {
+    enabled: Boolean(settings?.enabled),
+    perDay: normalizeTobaccoPerDay(settings?.perDay),
+  };
+}
 
 let currentUser = null;
 let cachedState = {};
@@ -269,6 +284,17 @@ function renderProfile() {
     profileThemeSelect.value = getCurrentTheme();
   }
 
+  const tobaccoSettings = normalizeTobaccoTaperingSettings(cachedState?.tobaccoTapering);
+  if (profileTobaccoEnabledInput && document.activeElement !== profileTobaccoEnabledInput) {
+    profileTobaccoEnabledInput.checked = tobaccoSettings.enabled;
+  }
+  if (profileTobaccoPlanSelect && document.activeElement !== profileTobaccoPlanSelect) {
+    profileTobaccoPlanSelect.value = String(tobaccoSettings.perDay);
+  }
+  if (profileTobaccoPlanSelect) {
+    profileTobaccoPlanSelect.disabled = !tobaccoSettings.enabled;
+  }
+
   if (profilePhotoPreview && profilePhotoFallback) {
     if (photoUrl) {
       profilePhotoPreview.src = photoUrl;
@@ -385,6 +411,10 @@ async function saveProfileForm(photoUrlOverride = null) {
     carbs: parseGoalInputValue(profileGoalCarbsInput?.value),
     fat: parseGoalInputValue(profileGoalFatInput?.value),
   };
+  const tobaccoTapering = normalizeTobaccoTaperingSettings({
+    enabled: profileTobaccoEnabledInput?.checked,
+    perDay: profileTobaccoPlanSelect?.value,
+  });
 
   if (saveProfileButton) {
     saveProfileButton.disabled = true;
@@ -417,6 +447,7 @@ async function saveProfileForm(photoUrlOverride = null) {
     carbs: macroGoals.carbs === '' ? '' : String(macroGoals.carbs),
     fat: macroGoals.fat === '' ? '' : String(macroGoals.fat),
   };
+  cachedState.tobaccoTapering = tobaccoTapering;
   cachedState.updatedAt = new Date().toISOString();
   persistLocalState(currentUser, cachedState);
 
@@ -596,6 +627,11 @@ profileThemeSelect?.addEventListener('change', () => {
   const selectedTheme = setCurrentTheme(profileThemeSelect.value);
   profileThemeSelect.value = selectedTheme;
   setStatus(`Theme updated to ${selectedTheme}.`);
+});
+
+profileTobaccoEnabledInput?.addEventListener('change', () => {
+  if (!profileTobaccoPlanSelect) return;
+  profileTobaccoPlanSelect.disabled = !profileTobaccoEnabledInput.checked;
 });
 
 initializeProfilePage();

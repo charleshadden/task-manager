@@ -50,47 +50,19 @@ const LOCAL_FOOD_LIBRARY = [
 const defaultUnconditionals = [
   { id: 'steps', text: 'Get your steps', done: false, attribute: 'Constitution' },
   { id: 'hydration', text: 'Hydration milestone', done: false, attribute: 'Constitution' },
-  { id: 'dogs', text: 'Give the dogs attention', done: false, attribute: 'Wisdom' },
-  { id: 'affirmation', text: 'Give words of affirmation', done: false, attribute: 'Charisma' },
 ];
 
-const defaultConditionals = [
-  {
-    id: 'rucking',
-    text: 'Rucking',
-    done: false,
-    attribute: 'Constitution',
-    baseXp: 20,
-    characteristics: [
-      { key: 'distanceMiles', label: 'Distance', type: 'number', unit: 'mi', min: 0 },
-      { key: 'weightLbs', label: 'Weight carried', type: 'number', unit: 'lb', min: 0 },
-      { key: 'hills', label: 'Hills', type: 'boolean' },
-    ],
-  },
-  { id: 'workout', text: 'Workout', done: false, attribute: 'Strength', baseXp: 22 },
-  {
-    id: 'reading',
-    text: 'Reading',
-    done: false,
-    attribute: 'Wisdom',
-    baseXp: 18,
-    characteristics: [
-      { key: 'minutes', label: 'Time', type: 'number', unit: 'min', min: 0 },
-    ],
-  },
-  { id: 'outside', text: 'Outside time', done: false, attribute: 'Dexterity', baseXp: 18 },
-  { id: 'journaling', text: 'Journaling', done: false, attribute: 'Intelligence', baseXp: 16 },
-  { id: 'distraction-free', text: 'Distraction free time', done: false, attribute: 'Wisdom', baseXp: 16 },
-  { id: 'service', text: 'Acts of service', done: false, attribute: 'Charisma', baseXp: 16 },
-  { id: 'app-building', text: 'App building', done: false, attribute: 'Intelligence', baseXp: 24 },
-  { id: 'diet', text: 'Diet adherence', done: false, attribute: 'Constitution', baseXp: 20 },
-  { id: 'sleep', text: 'Sleep quality', done: false, attribute: 'Constitution', baseXp: 18 },
-  { id: 'mobility', text: 'Mobility/stretching', done: false, attribute: 'Dexterity', baseXp: 16 },
-  { id: 'agility', text: 'Agility/footwork', done: false, attribute: 'Dexterity', baseXp: 18 },
-  { id: 'craft', text: 'Fine motor/craft work', done: false, attribute: 'Dexterity', baseXp: 16 },
-];
+const defaultConditionals = [];
 
 const defaultConditionalsById = Object.fromEntries(defaultConditionals.map((item) => [item.id, item]));
+const TOBACCO_TAPERING_TASK_ID = 'tobacco-tapering';
+const TOBACCO_TAPERING_SCHEDULES = {
+  5: ['7:30', '10:30', '1:30', '4:30', '7:30'],
+  4: ['8:00', '12:00', '4:00', '8:00'],
+  3: ['8:00', '2:00', '8:00'],
+  2: ['9:00', '5:00'],
+  1: ['2:00 PM'],
+};
 
 const defaultChecklistSections = {
   weekly: [],
@@ -129,6 +101,41 @@ function createEmptyMacroGoalValues() {
     carbs: '',
     fat: '',
   };
+}
+
+function normalizeTobaccoPerDay(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 5;
+  return Math.max(1, Math.min(5, Math.round(parsed)));
+}
+
+function createDefaultTobaccoTaperingSettings() {
+  return {
+    enabled: false,
+    perDay: 5,
+  };
+}
+
+function normalizeTobaccoTaperingSettings(settings) {
+  return {
+    enabled: Boolean(settings?.enabled),
+    perDay: normalizeTobaccoPerDay(settings?.perDay),
+  };
+}
+
+function getTobaccoScheduleForPlan(perDay) {
+  const normalizedPlan = normalizeTobaccoPerDay(perDay);
+  return TOBACCO_TAPERING_SCHEDULES[normalizedPlan] || TOBACCO_TAPERING_SCHEDULES[5];
+}
+
+function normalizeTobaccoSlots(slots, perDay) {
+  const normalizedPlan = normalizeTobaccoPerDay(perDay);
+  const source = Array.isArray(slots) ? slots : [];
+  const next = [];
+  for (let index = 0; index < normalizedPlan; index += 1) {
+    next.push(Boolean(source[index]));
+  }
+  return next;
 }
 
 function createDefaultTotals() {
@@ -191,6 +198,7 @@ function createDefaultState() {
     macroLog: [],
     currentMacros: createEmptyMacroValues(),
     macroGoals: createEmptyMacroGoalValues(),
+    tobaccoTapering: createDefaultTobaccoTaperingSettings(),
     updatedAt: new Date().toISOString(),
   };
 }
@@ -276,12 +284,14 @@ function updateLifetimeTotals(group, taskId, completionDelta, xpDelta) {
 }
 
 function ensureStateShape() {
+  state.tobaccoTapering = normalizeTobaccoTaperingSettings(state.tobaccoTapering);
+
   state.unconditionals = Array.isArray(state.unconditionals) && state.unconditionals.length > 0
     ? state.unconditionals.map(normalizeUnconditionalItem)
     : [...defaultUnconditionals].map(normalizeUnconditionalItem);
 
-  // Remove legacy daily tasks now covered by daily meta rows.
-  state.unconditionals = state.unconditionals.filter((task) => task?.id !== 'weight' && task?.id !== 'mood');
+  // Remove legacy and retired daily tasks.
+  state.unconditionals = state.unconditionals.filter((task) => !['weight', 'mood', 'dogs', 'affirmation'].includes(task?.id));
 
   defaultUnconditionals.forEach((defaultTask) => {
     if (!defaultTask?.id) return;
@@ -291,9 +301,10 @@ function ensureStateShape() {
     }
   });
 
-  state.conditionals = Array.isArray(state.conditionals) && state.conditionals.length > 0
-    ? state.conditionals.map(normalizeConditionalItem)
-    : [...defaultConditionals].map(normalizeConditionalItem);
+  syncTobaccoTaperingTask();
+
+  // Extra goals are disabled for now.
+  state.conditionals = [];
 
   const legacyHydration = state.conditionals.find((task) => task?.id === 'hydration') || null;
   state.conditionals = state.conditionals.filter((task) => task?.id !== 'hydration');
@@ -380,6 +391,41 @@ function ensureStateShape() {
   ensureTotalsShape();
   state.updatedAt = state.updatedAt || new Date().toISOString();
   persistLocalState();
+}
+
+function syncTobaccoTaperingTask() {
+  const settings = normalizeTobaccoTaperingSettings(state.tobaccoTapering);
+  state.tobaccoTapering = settings;
+
+  const existingIndex = state.unconditionals.findIndex((task) => task?.id === TOBACCO_TAPERING_TASK_ID);
+  if (!settings.enabled) {
+    if (existingIndex >= 0) {
+      state.unconditionals.splice(existingIndex, 1);
+    }
+    return;
+  }
+
+  const existingTask = existingIndex >= 0 ? state.unconditionals[existingIndex] : null;
+  const tobaccoTask = normalizeUnconditionalItem({
+    ...existingTask,
+    id: TOBACCO_TAPERING_TASK_ID,
+    text: 'Tobacco tapering',
+    attribute: 'Constitution',
+    tobaccoPerDay: settings.perDay,
+    tobaccoSlots: normalizeTobaccoSlots(existingTask?.tobaccoSlots, settings.perDay),
+  });
+  tobaccoTask.done = tobaccoTask.tobaccoSlots.every(Boolean);
+
+  if (!tobaccoTask.done) {
+    tobaccoTask.completedDate = '';
+  }
+
+  if (existingIndex >= 0) {
+    state.unconditionals[existingIndex] = tobaccoTask;
+  } else {
+    const insertIndex = Math.min(2, state.unconditionals.length);
+    state.unconditionals.splice(insertIndex, 0, tobaccoTask);
+  }
 }
 
 const appShell = document.getElementById('appShell');
@@ -920,6 +966,7 @@ function getFixedAttribute(text, sectionKey = '') {
     'app building': 'Intelligence',
     'diet adherence': 'Constitution',
     'hydration milestone': 'Constitution',
+    'tobacco tapering': 'Constitution',
     'sleep quality': 'Constitution',
     'mobility/stretching': 'Dexterity',
     'agility/footwork': 'Dexterity',
@@ -956,14 +1003,20 @@ function normalizeChecklistItem(item, sectionKey = '') {
 }
 
 function normalizeUnconditionalItem(item) {
+  const isTobaccoTask = item?.id === TOBACCO_TAPERING_TASK_ID;
+  const tobaccoPerDay = normalizeTobaccoPerDay(item?.tobaccoPerDay);
+  const tobaccoSlots = normalizeTobaccoSlots(item?.tobaccoSlots, tobaccoPerDay);
+
   return {
     id: item?.id || createId('unconditional'),
-    text: item?.text || '',
-    done: Boolean(item?.done),
+    text: isTobaccoTask ? 'Tobacco tapering' : (item?.text || ''),
+    done: isTobaccoTask ? tobaccoSlots.every(Boolean) : Boolean(item?.done),
     attribute: getFixedAttribute(item?.text),
     completedDate: item?.completedDate || (item?.done ? getTodayKey() : ''),
     stepCount: Number.isFinite(Number(item?.stepCount)) ? Number(item?.stepCount) : '',
     hydrationCups: Number.isFinite(Number(item?.hydrationCups)) ? Math.max(0, Math.min(10, Math.round(Number(item?.hydrationCups)))) : 0,
+    tobaccoPerDay,
+    tobaccoSlots,
     lastAwardedXp: Number.isFinite(Number(item?.lastAwardedXp)) ? Number(item?.lastAwardedXp) : 0,
   };
 }
@@ -1093,6 +1146,7 @@ function loadLocalState(user = currentUser) {
       macroGoals: parsed.macroGoals && typeof parsed.macroGoals === 'object'
         ? { ...createEmptyMacroGoalValues(), ...parsed.macroGoals }
         : createEmptyMacroGoalValues(),
+      tobaccoTapering: normalizeTobaccoTaperingSettings(parsed.tobaccoTapering),
       updatedAt: parsed.updatedAt || new Date().toISOString(),
     };
   } catch {
@@ -1193,6 +1247,9 @@ function ensureTodayState() {
     completedDate: '',
     stepCount: task.id === 'steps' ? '' : task.stepCount,
     hydrationCups: task.id === 'hydration' ? 0 : task.hydrationCups,
+    tobaccoSlots: task.id === TOBACCO_TAPERING_TASK_ID
+      ? normalizeTobaccoSlots([], task.tobaccoPerDay)
+      : task.tobaccoSlots,
     lastAwardedXp: 0,
     attribute: getFixedAttribute(task.text),
   }));
@@ -1243,6 +1300,11 @@ function isDailyTaskComplete(task) {
 
   if (task.id === 'hydration') {
     return (Number(task.hydrationCups) || 0) >= 10;
+  }
+
+  if (task.id === TOBACCO_TAPERING_TASK_ID) {
+    const slots = normalizeTobaccoSlots(task.tobaccoSlots, task.tobaccoPerDay);
+    return slots.length > 0 && slots.every(Boolean);
   }
 
   return Boolean(task.done);
@@ -2420,6 +2482,12 @@ function renderDailyChecklist() {
         const dailyTask = state.unconditionals[taskIndex];
         if (dailyTask.id === 'hydration') {
           state.unconditionals[taskIndex].hydrationCups = checkbox.checked ? 10 : 0;
+        } else if (dailyTask.id === TOBACCO_TAPERING_TASK_ID) {
+          const activePlan = normalizeTobaccoPerDay(dailyTask.tobaccoPerDay || state.tobaccoTapering?.perDay);
+          state.unconditionals[taskIndex].tobaccoPerDay = activePlan;
+          state.unconditionals[taskIndex].tobaccoSlots = checkbox.checked
+            ? Array.from({ length: activePlan }, () => true)
+            : normalizeTobaccoSlots([], activePlan);
         }
         const today = getTodayKey();
         const isCompletedToday = dailyTask.completedDate === today;
@@ -2457,6 +2525,7 @@ function renderDailyChecklist() {
 
     let stepsControl = null;
     let hydrationControl = null;
+    let tobaccoControl = null;
     if (!task.meta && task.id === 'steps') {
       stepsControl = document.createElement('label');
       stepsControl.className = 'steps-control';
@@ -2553,6 +2622,80 @@ function renderDailyChecklist() {
       }
     }
 
+    if (!task.meta && task.id === TOBACCO_TAPERING_TASK_ID) {
+      tobaccoControl = document.createElement('div');
+      tobaccoControl.className = 'tobacco-taper-slots';
+
+      const perDay = normalizeTobaccoPerDay(task.tobaccoPerDay || state.tobaccoTapering?.perDay);
+      const schedule = getTobaccoScheduleForPlan(perDay);
+      const slots = normalizeTobaccoSlots(task.tobaccoSlots, perDay);
+
+      schedule.forEach((timeLabel, slotIndex) => {
+        const slotButton = document.createElement('button');
+        slotButton.type = 'button';
+        slotButton.className = `cigarette-slot${slots[slotIndex] ? ' filled' : ''}`;
+        slotButton.setAttribute('aria-label', `Toggle cigarette slot ${slotIndex + 1} at ${timeLabel}`);
+
+        const emoji = document.createElement('span');
+        emoji.className = 'cigarette-emoji';
+        emoji.textContent = '🚬';
+
+        const time = document.createElement('span');
+        time.className = 'cigarette-time';
+        time.textContent = timeLabel;
+
+        slotButton.appendChild(emoji);
+        slotButton.appendChild(time);
+
+        slotButton.addEventListener('click', () => {
+          const taskIndex = index < baseTaskCount ? index : -1;
+          if (taskIndex < 0) return;
+
+          const tobaccoTask = state.unconditionals[taskIndex];
+          const activePlan = normalizeTobaccoPerDay(tobaccoTask.tobaccoPerDay || state.tobaccoTapering?.perDay);
+          const wasDone = Boolean(tobaccoTask.done);
+          const nextSlots = normalizeTobaccoSlots(tobaccoTask.tobaccoSlots, activePlan);
+          nextSlots[slotIndex] = !nextSlots[slotIndex];
+
+          tobaccoTask.tobaccoPerDay = activePlan;
+          tobaccoTask.tobaccoSlots = nextSlots;
+          tobaccoTask.done = nextSlots.every(Boolean);
+
+          const today = getTodayKey();
+          const isCompletedToday = tobaccoTask.completedDate === today;
+          const hasLegacyCredit = wasDone && !tobaccoTask.completedDate;
+          const xpGain = calculateUnconditionalXp(tobaccoTask);
+          const shouldBeDone = tobaccoTask.done;
+
+          if (shouldBeDone && !isCompletedToday) {
+            addXp(xpGain);
+            addAttributeXp(tobaccoTask.attribute, xpGain);
+            tobaccoTask.completedDate = today;
+            tobaccoTask.lastAwardedXp = xpGain;
+            updateLifetimeTotals('daily', tobaccoTask.id || `daily-${taskIndex}`, 1, xpGain);
+          } else if (!shouldBeDone) {
+            if (isCompletedToday || hasLegacyCredit) {
+              const rollbackXp = Number(tobaccoTask.lastAwardedXp) || xpGain;
+              addXp(-rollbackXp);
+              addAttributeXp(tobaccoTask.attribute, -rollbackXp);
+              updateLifetimeTotals('daily', tobaccoTask.id || `daily-${taskIndex}`, -1, -rollbackXp);
+            }
+            tobaccoTask.completedDate = '';
+            tobaccoTask.lastAwardedXp = 0;
+          }
+
+          updateHistoryFromCompletion();
+          saveState();
+          render();
+          if (shouldBeDone) {
+            launchConfetti();
+          }
+        });
+
+        tobaccoControl.appendChild(slotButton);
+      });
+    }
+
     let badge = null;
     if (task.meta) {
       badge = document.createElement('span');
@@ -2566,7 +2709,7 @@ function renderDailyChecklist() {
     deleteButton.textContent = '×';
     deleteButton.setAttribute('aria-label', `Delete ${task.text}`);
     deleteButton.addEventListener('click', () => {
-      if (task.meta) return;
+      if (task.meta || task.id === TOBACCO_TAPERING_TASK_ID) return;
       const taskIndex = index < baseTaskCount ? index : -1;
       if (taskIndex >= 0) {
         state.unconditionals.splice(taskIndex, 1);
@@ -2583,10 +2726,13 @@ function renderDailyChecklist() {
     if (hydrationControl) {
       item.appendChild(hydrationControl);
     }
+    if (tobaccoControl) {
+      item.appendChild(tobaccoControl);
+    }
     if (badge) {
       item.appendChild(badge);
     }
-    if (!task.meta) {
+    if (!task.meta && task.id !== TOBACCO_TAPERING_TASK_ID) {
       item.appendChild(deleteButton);
     }
     taskList.appendChild(item);
